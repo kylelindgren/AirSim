@@ -6,7 +6,7 @@
 
 #include <exception>
 #include <vector>
-#include "firmware/Board.hpp"
+#include "firmware/interfaces/IBoard.hpp"
 #include "firmware/Params.hpp"
 #include "common/Common.hpp"
 #include "common/ClockFactory.hpp"
@@ -15,7 +15,7 @@
 
 namespace msr { namespace airlib {
 
-class AirSimSimpleFlightBoard : public simple_flight::Board {
+class AirSimSimpleFlightBoard : public simple_flight::IBoard {
 public:
     AirSimSimpleFlightBoard(const simple_flight::Params* params)
         : params_(params)
@@ -55,12 +55,12 @@ public:
         return clock()->nowNanos() / 1000000;
     }
 
-    virtual float readChannel(uint8_t index) const override 
+    virtual float readChannel(uint16_t index) const override 
     {
         return input_channels_[index];
     }
 
-    virtual void writeOutput(uint8_t index, float value) override 
+    virtual void writeOutput(uint16_t index, float value) override 
     {
         motor_output_[index] = value;
     }
@@ -90,12 +90,16 @@ public:
 
     virtual void reset() override 
     {
+        IBoard::reset();
+
         motor_output_.assign(params_->motor_count, 0);
         input_channels_.assign(params_->rc_channel_count, 0);
     }
 
     virtual void update() override
     {
+        IBoard::update();
+
         //no op for now
     }
 

@@ -5,14 +5,14 @@
 #define msr_airlib_AirSimSimpleFlightCommLink_hpp
 
 #include <exception>
-#include "firmware/CommLink.hpp"
+#include "firmware/interfaces/ICommLink.hpp"
 #include "common/Common.hpp"
 
 
 namespace msr { namespace airlib {
 
 
-class AirSimSimpleFlightCommLink : public simple_flight::CommLink {
+class AirSimSimpleFlightCommLink : public simple_flight::ICommLink {
 public: // derived class specific methods
     void getStatusMessages(std::vector<std::string>& messages)
     {
@@ -25,16 +25,19 @@ public: // derived class specific methods
 public: // implement CommLink interface
     virtual void reset()
     {
+        simple_flight::ICommLink::reset();
+
         messages_.clear();
     }
 
     virtual void update()
     {
+        simple_flight::ICommLink::update();
     }
 
-    virtual void log(const char* message, int32_t error_level)
+    virtual void log(const std::string& message, int32_t log_level)
     {
-        unused(error_level);
+        unused(log_level);
         messages_.push_back(std::string(message));
     }
 

@@ -2,13 +2,14 @@
 
 #include <cstdlib>
 #include <algorithm>
-#include "CommonStructs.hpp"
+#include "interfaces/CommonStructs.hpp"
 
 namespace simple_flight {
 
 template<class T>
-class PidController {
+class PidController : public IUpdatable {
 public:
+    //config params for PID controller
     struct Config {
         Config(float kp_val = 0.01f, float ki_val = 0.0f, float kd_val = 0.0f,
             float min_output_val = -1.0f, float max_output_val = 1.0f,
@@ -77,8 +78,10 @@ public:
         iterm_int_ = T();
     }
 
-    void reset()
+    virtual void reset() override
     {
+        IUpdatable::reset();
+
         goal_ = T();
         measured_ = T();
         last_time_ = clock_ == nullptr ? 0 : clock_->millis();
@@ -87,8 +90,10 @@ public:
         min_dt_ = config_.time_scale * config_.time_scale;
     }
 
-    void update()
+    virtual void update() override
     {
+        IUpdatable::update();
+
         if (!config_.enabled)
             return;
 
@@ -137,12 +142,12 @@ private:
 private:
     T goal_, measured_;
     T output_;
-    const IBoardClock* clock_;
-    Config config_;
     uint64_t last_time_;
-    float min_dt_;
+    const IBoardClock* clock_;
     float iterm_int_;
     float last_goal_;
+    float min_dt_;
+    Config config_;
 };
 
 
