@@ -7,17 +7,17 @@
 #include <stdexcept>
 #include <cmath>
 #include <utility>
-#include "SimpleShell.hpp"
-#include "common/Common.hpp"
-#include "common/common_utils/Utils.hpp"
-#include "common/common_utils/FileSystem.hpp"
-#include "common/common_utils/AsyncTasker.hpp"
-#include "api/RpcLibClient.hpp"
-#include "common/EarthUtils.hpp"
-#include "controllers/DroneCommon.hpp"
-#include "controllers/DroneControllerBase.hpp"
-#include "safety/SafetyEval.hpp"
-#include "common/ClockFactory.hpp"
+#include "../include/SimpleShell.hpp"
+#include "../AirLib/include/common/Common.hpp"
+#include "../AirLib/include/common/common_utils/Utils.hpp"
+#include "../AirLib/include/common/common_utils/FileSystem.hpp"
+#include "../AirLib/include/common/common_utils/AsyncTasker.hpp"
+#include "../AirLib/include/api/RpcLibClient.hpp"
+#include "../AirLib/include/common/EarthUtils.hpp"
+#include "../AirLib/include/controllers/DroneCommon.hpp"
+#include "../AirLib/include/controllers/DroneControllerBase.hpp"
+#include "../AirLib/include/safety/SafetyEval.hpp"
+#include "../AirLib/include/common/ClockFactory.hpp"
 
 
 namespace msr { namespace airlib {

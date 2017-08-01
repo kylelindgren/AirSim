@@ -6,6 +6,7 @@
 
 #include "common/common_utils/Utils.hpp"
 #include "common_utils/RandomGenerator.hpp"
+#include <math.h>
 STRICT_MODE_OFF
 //if not using unaligned types then disable vectorization to avoid alignment issues all over the places
 //#define EIGEN_DONT_VECTORIZE
@@ -227,18 +228,18 @@ public:
         // roll (x-axis rotation)
         RealT t0 = +2.0f * (q.w() * q.x() + q.y() * q.z());
         RealT t1 = +1.0f - 2.0f * (q.x() * q.x() + ysqr);
-        roll = std::atan2f(t0, t1);
+        roll = atan2f(t0, t1);
 
         // pitch (y-axis rotation)
         RealT t2 = +2.0f * (q.w() * q.y() - q.z() * q.x());
         t2 = ((t2 > 1.0f) ? 1.0f : t2);
         t2 = ((t2 < -1.0f) ? -1.0f : t2);
-        pitch = std::asinf(t2);
+        pitch = asinf(t2);
 
         // yaw (z-axis rotation)
         RealT t3 = +2.0f * (q.w() * q.z() + q.x() * q.y());
         RealT t4 = +1.0f - 2.0f * (ysqr + q.z() * q.z());  
-        yaw = std::atan2f(t3, t4);
+        yaw = atan2f(t3, t4);
     }
 
     static Vector3T toAngularVelocity(const QuaternionT& start, const QuaternionT& end, RealT delta_sec)

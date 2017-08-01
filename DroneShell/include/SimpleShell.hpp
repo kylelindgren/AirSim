@@ -4,12 +4,12 @@
 #ifndef air_SimpleShell_hpp
 #define air_SimpleShell_hpp
 
-#include "common/common_utils/StrictMode.hpp"
+#include "../AirLib/include/common/common_utils/StrictMode.hpp"
 STRICT_MODE_OFF
 #ifndef RPCLIB_MSGPACK
 #define RPCLIB_MSGPACK clmdep_msgpack
 #endif // !RPCLIB_MSGPACK
-#include "rpc/rpc_error.h"
+#include "../external/rpclib/include/rpc/rpc_error.h"
 STRICT_MODE_ON
 
 
@@ -25,8 +25,8 @@ STRICT_MODE_ON
 #include <unordered_map>
 #include <algorithm>
 #include <fstream>
-#include "common/common_utils/Utils.hpp"
-#include "common/ClockBase.hpp"
+#include "../AirLib/include/common/common_utils/Utils.hpp"
+#include "../AirLib/include/common/ClockBase.hpp"
 
 namespace msr { namespace airlib {
 
