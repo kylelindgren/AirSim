@@ -317,3 +317,5 @@ deps/
 /cmake-3.7.2-win64-x64.zip
 /3.3.2.zip
 
+Unreal/Environments/LandscapeMountains/Content/Maps/LandscapeMap.umap
+Unreal/Environments/LandscapeMountains/Content/Maps/LandscapeMap_BuiltData.uasset
