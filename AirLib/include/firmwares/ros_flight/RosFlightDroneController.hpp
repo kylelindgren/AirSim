@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#ifndef msr_airlib_SimpleFlightDroneController_hpp
-#define msr_airlib_SimpleFlightDroneController_hpp
+#ifndef msr_airlib_RosFlightDroneController_hpp
+#define msr_airlib_RosFlightDroneController_hpp
 
 #include "controllers/DroneControllerBase.hpp"
 #include "sensors/SensorCollection.hpp"
@@ -10,41 +10,38 @@
 #include "physics/Kinematics.hpp"
 #include "vehicles/MultiRotorParams.hpp"
 #include "common/Common.hpp"
+#include "AirSimRosFlightBoard.hpp"
+#include "AirSimRosFlightCommLink.hpp"
 #include "controllers/Settings.hpp"
-#include "firmware/Firmware.hpp"
-#include "AirSimSimpleFlightBoard.hpp"
-#include "AirSimSimpleFlightCommLink.hpp"
-#include "AirSimSimpleFlightEstimator.hpp"
 
+STRICT_MODE_OFF
+#include "firmware/firmware.hpp"
+STRICT_MODE_ON
 
 namespace msr { namespace airlib {
 
-class SimpleFlightDroneController : public DroneControllerBase {
+class RosFlightDroneController : public DroneControllerBase {
 
 public:
-    SimpleFlightDroneController(const MultiRotorParams* vehicle_params)
+    RosFlightDroneController(const SensorCollection* sensors, const MultiRotorParams* vehicle_params)
         : vehicle_params_(vehicle_params)
     {
-        //create sim implementations of board and commlink
-        board_.reset(new AirSimSimpleFlightBoard(&params_));
-        comm_link_.reset(new AirSimSimpleFlightCommLink());
-        estimator_.reset(new AirSimSimpleFlightEstimator());
+        sensors_ = sensors;
 
-        //create firmware
-        firmware_.reset(new simple_flight::Firmware(board_.get(), comm_link_.get(), estimator_.get(), &params_));
+        board_.reset(new AirSimRosFlightBoard(&vehicle_params_->getParams().enabled_sensors, sensors_));
+        comm_link_.reset(new AirSimRosFlightCommLink());
+        firmware_.reset(new ros_flight::Firmware(board_.get(), comm_link_.get()));
+        firmware_->setup();
 
-        //find out which RC we should use
         Settings child;
-        Settings::singleton().getChild("SimpleFlight", child);
+        Settings::singleton().getChild("RosFlight", child);
         remote_control_id_ = child.getInt("RemoteControlID", 0);
     }
 
     void initializePhysics(PhysicsBody* physics_body) override
     {
-        physics_body_ = physics_body;
-
-        board_->setKinematics(& physics_body_->getKinematics());
-        estimator_->setKinematics(& physics_body_->getKinematics());
+        environment_ = & physics_body->getEnvironment();
+        kinematics_ = & physics_body->getKinematics();
     }
 
 public:
@@ -53,21 +50,21 @@ public:
     {
         DroneControllerBase::reset();
 
-        firmware_->reset();
+        board_->system_reset(false);
     }
 
     virtual void update() override
     {
         DroneControllerBase::update();
 
-        firmware_->update();
+        board_->notifySensorUpdated(ros_flight::Board::SensorType::Imu);
+        firmware_->loop();
     }
 
     virtual void start() override
     {
         DroneControllerBase::start();
     }
-
     virtual void stop() override
     {
         DroneControllerBase::stop();
@@ -80,7 +77,20 @@ public:
 
     virtual real_T getVertexControlSignal(unsigned int rotor_index) override
     {
-        auto control_signal = board_->getMotorControlSignal(rotor_index);
+        //convert counter clockwise index to ArduCopter's QuadX style index
+        unsigned int index_quadx;
+        switch (rotor_index)
+        {
+        case 0: index_quadx = 1; break;
+        case 1: index_quadx = 2; break;
+        case 2: index_quadx = 3; break;
+        case 3: index_quadx = 0; break;
+        default:
+            throw std::runtime_error("Rotor index beyond 3 is not supported yet in ROSFlight firmware");
+        }
+
+        auto control_signal = board_->getMotorControlSignal(index_quadx);
+
         return control_signal;
     }
 
@@ -102,8 +112,8 @@ public:
 
     virtual void setOffboardMode(bool is_set) override
     {
-        unused(is_set);
         //TODO: implement this
+        unused(is_set);
     }
 
     virtual void setSimulationMode(bool is_set) override
@@ -117,17 +127,17 @@ public:
 public:
     Vector3r getPosition() override
     {
-        return physics_body_->getKinematics().pose.position;
+        return kinematics_->pose.position;
     }
 
     Vector3r getVelocity() override
     {
-        return physics_body_->getKinematics().twist.linear;
+        return kinematics_->twist.linear;
     }
 
     Quaternionr getOrientation() override
     {
-        return physics_body_->getKinematics().pose.orientation;
+        return kinematics_->pose.orientation;
     }
 
     LandedState getLandedState() override
@@ -149,18 +159,18 @@ public:
     void setRCData(const RCData& rcData) override
     {
         if (rcData.is_connected) {
-            board_->setInputChannel(0, rcData.roll); //X
-            board_->setInputChannel(1, rcData.yaw); //Y
-            board_->setInputChannel(2, rcData.throttle); //F
-            board_->setInputChannel(3, -rcData.pitch); //Z
-            board_->setInputChannel(4, static_cast<float>(rcData.switch1));
-            board_->setInputChannel(5, static_cast<float>(rcData.switch2));
-            board_->setInputChannel(6, static_cast<float>(rcData.switch3));
-            board_->setInputChannel(7, static_cast<float>(rcData.switch4));
-            board_->setInputChannel(8, static_cast<float>(rcData.switch5)); 
-            board_->setInputChannel(9, static_cast<float>(rcData.switch6)); 
-            board_->setInputChannel(10, static_cast<float>(rcData.switch7)); 
-            board_->setInputChannel(11, static_cast<float>(rcData.switch8)); 
+            board_->setInputChannel(0, angleToPwm(rcData.roll)); //X
+            board_->setInputChannel(1, angleToPwm(rcData.yaw)); //Y
+            board_->setInputChannel(2, thrustToPwm(rcData.throttle)); //F
+            board_->setInputChannel(3, angleToPwm(-rcData.pitch)); //Z
+            board_->setInputChannel(4, switchToPwm(rcData.switch1));
+            board_->setInputChannel(5, switchToPwm(rcData.switch2));
+            board_->setInputChannel(6, switchToPwm(rcData.switch3));
+            board_->setInputChannel(7, switchToPwm(rcData.switch4));
+            board_->setInputChannel(8, switchToPwm(rcData.switch5)); 
+            board_->setInputChannel(9, switchToPwm(rcData.switch6)); 
+            board_->setInputChannel(10, switchToPwm(rcData.switch7)); 
+            board_->setInputChannel(11, switchToPwm(rcData.switch8)); 
         }
         //else we don't have RC data
     }
@@ -169,6 +179,7 @@ public:
     {
         unused(arm);
         unused(cancelable_action);
+
         return true;
     }
 
@@ -176,6 +187,7 @@ public:
     {
         unused(max_wait_seconds);
         unused(cancelable_action);
+
         return true;
     }
 
@@ -183,6 +195,7 @@ public:
     {
         unused(max_wait_seconds);
         unused(cancelable_action);
+
         return true;
     }
 
@@ -198,19 +211,20 @@ public:
         return true;
     }
 
-    GeoPoint getHomePoint() override
+    GeoPoint getHomeGeoPoint() override
     {
-        return physics_body_->getEnvironment().getInitialState().geo_point;
+        return environment_->getInitialState().geo_point;
     }
 
     GeoPoint getGpsLocation() override
     {
-        return physics_body_->getEnvironment().getState().geo_point;
+        return environment_->getState().geo_point;
     }
 
     virtual void reportTelemetry(float renderTime) override
     {
         unused(renderTime);
+
         //TODO: implement this
     }
 
@@ -278,41 +292,9 @@ protected:
         static const VehicleParams safety_params;
         return safety_params;
     }
-
-
-    void simSetPose(const Vector3r& position, const Quaternionr& orientation) override
-    {
-        pending_pose_ = Pose(position, orientation);
-        waitForRender();
-    }
-
-    void simNotifyRender() override
-    {
-        std::unique_lock<std::mutex> render_wait_lock(render_mutex_);
-        if (!is_pose_update_done_) {
-            auto kinematics = physics_body_->getKinematics();
-            if (! VectorMath::hasNan(pending_pose_.position))
-                kinematics.pose.position = pending_pose_.position;
-            if (! VectorMath::hasNan(pending_pose_.orientation))
-                kinematics.pose.orientation = pending_pose_.orientation;
-            physics_body_->setKinematics(kinematics);
-
-            is_pose_update_done_ = true;
-            render_wait_lock.unlock();
-            render_cond_.notify_all();
-        }
-    }
-
     //*** End: DroneControllerBase implementation ***//
 
 private:
-    void waitForRender()
-    {
-        std::unique_lock<std::mutex> render_wait_lock(render_mutex_);
-        is_pose_update_done_ = false;
-        render_cond_.wait(render_wait_lock, [this]{return is_pose_update_done_;});
-    }
-
     //convert pitch, roll, yaw from -1 to 1 to PWM
     static uint16_t angleToPwm(float angle)
     {
@@ -322,28 +304,22 @@ private:
     {
         return static_cast<uint16_t>((thrust < 0 ? 0 : thrust) * 1000.0f + 1000.0f);
     }
-    static uint16_t switchTopwm(float switchVal, uint maxSwitchVal = 1)
+    static uint16_t switchToPwm(uint switchVal, uint maxSwitchVal = 1)
     {
         return static_cast<uint16_t>(1000.0f * switchVal / maxSwitchVal + 1000.0f);
     }
 
 private:
     const MultiRotorParams* vehicle_params_;
-    PhysicsBody* physics_body_;
+    const Kinematics::State* kinematics_;
+    const Environment* environment_;
+    const SensorCollection* sensors_;
 
     int remote_control_id_ = 0;
-    simple_flight::Params params_;
 
-    unique_ptr<AirSimSimpleFlightBoard> board_;
-    unique_ptr<AirSimSimpleFlightCommLink> comm_link_;
-    unique_ptr<AirSimSimpleFlightEstimator> estimator_;
-    unique_ptr<simple_flight::Firmware> firmware_;
-
-    std::mutex render_mutex_;
-    std::condition_variable render_cond_;
-    bool is_pose_update_done_;
-    Pose pending_pose_;
-
+    unique_ptr<AirSimRosFlightBoard> board_;
+    unique_ptr<AirSimRosFlightCommLink> comm_link_;
+    unique_ptr<ros_flight::Firmware> firmware_;
 };
 
 }} //namespace

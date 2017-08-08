@@ -2,7 +2,7 @@
 #pragma once
 
 #include "interfaces/IUpdatable.hpp"
-#include "interfaces/IGoalInput.hpp"
+#include "interfaces/IGoal.hpp"
 #include "interfaces/IBoardClock.hpp"
 #include "interfaces/CommonStructs.hpp"
 #include "interfaces/IAxisController.hpp"
@@ -10,12 +10,15 @@
 #include "Params.hpp"
 #include "PidController.hpp"
 #include "common/common_utils/Utils.hpp"
+#include <string>
+#include <exception>
+
 
 namespace simple_flight {
 
 class AngleLevelController : 
     public IAxisController,
-    public IGoalInput  //for internal rate controller
+    public IGoal  //for internal rate controller
 {
 public:
     AngleLevelController(const Params* params, const IBoardClock* clock = nullptr)
@@ -23,15 +26,18 @@ public:
     {
     }
 
-    virtual void initialize(unsigned int axis, const IGoalInput* goal_input, const IStateEstimator* state_estimator) override
+    virtual void initialize(unsigned int axis, const IGoal* goal, const IStateEstimator* state_estimator) override
     {
+        if (axis > 2)
+            throw std::invalid_argument("AngleLevelController only supports axis 0-2 but it was " + std::to_string(axis));
+
         axis_ = axis;
-        goal_input_ = goal_input;
+        goal_ = goal;
         state_estimator_ = state_estimator;
 
         //initialize level PID
         pid_.reset(new PidController<float>(clock_,
-            PidController<float>::Config(params_->pid_p_angle_level[axis], 0, 0)));
+            PidController<float>::Config(params_->angle_level_pid.p[axis], 0, 0)));
 
         //initialize rate controller
         rate_controller_.reset(new AngleRateController(params_, clock_));
@@ -45,7 +51,6 @@ public:
     virtual void reset() override
     {
         IAxisController::reset();
-        IGoalInput::reset();
 
         pid_->reset();
         rate_controller_->reset();
@@ -56,17 +61,15 @@ public:
     virtual void update() override
     {
         IAxisController::update();
-        IGoalInput::update();
 
         //get response of level PID
-        const auto& level_goal = goal_input_->getGoal();
-        pid_->setGoal(level_goal.axis3[axis_]);
+        const auto& level_goal = goal_->getGoalValue();
+        pid_->setGoal(level_goal[axis_]);
         pid_->setMeasured(state_estimator_->getAngles()[axis_]);
         pid_->update();
 
         //use this to drive rate controller
-        rate_goal_.throttle = level_goal.throttle;
-        rate_goal_.axis3[axis_] = pid_->getOutput() * params_->max_angle_rate[axis_];
+        rate_goal_[axis_] = pid_->getOutput() * params_->angle_rate_pid.max_limit[axis_];
         rate_controller_->update();
 
         //rate controller's output is final output
@@ -78,8 +81,8 @@ public:
         return output_;
     }
 
-    /********************  IGoalInput ********************/
-    virtual const Axis4r& getGoal() const override
+    /********************  IGoal ********************/
+    virtual const Axis4r& getGoalValue() const override
     {
         return rate_goal_;
     }
@@ -91,7 +94,7 @@ public:
 
 private:
     unsigned int axis_;
-    const IGoalInput* goal_input_;
+    const IGoal* goal_;
     const IStateEstimator* state_estimator_;
 
     GoalMode rate_mode_;

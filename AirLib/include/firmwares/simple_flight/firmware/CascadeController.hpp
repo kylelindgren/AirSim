@@ -5,9 +5,15 @@
 #include "interfaces/IController.hpp"
 #include "interfaces/IStateEstimator.hpp"
 #include "interfaces/ICommLink.hpp"
-#include "interfaces/IGoalInput.hpp"
+#include "interfaces/IGoal.hpp"
 #include "AngleRateController.hpp"
 #include "AngleLevelController.hpp"
+#include "PassthroughController.hpp"
+#include "ConstantOutputController.hpp"
+#include "VelocityController.hpp"
+#include "PositionController.hpp"
+
+
 
 namespace simple_flight {
 
@@ -18,20 +24,20 @@ public:
     {
     }
 
-    virtual void initialize(const IGoalInput* goal_input, const IStateEstimator* state_estimator) override
+    virtual void initialize(const IGoal* goal, const IStateEstimator* state_estimator) override
     {
-        goal_input_ = goal_input;
+        goal_ = goal;
         state_estimator_ = state_estimator;
-        last_goal_mode_ = GoalMode::getUnknown();
     }
 
     virtual void reset() override
     {
         IController::reset();
 
+        last_goal_mode_ = GoalMode::getUnknown();
         output_ = Axis4r();
 
-        for (unsigned int axis = 0; axis < 3; ++axis) {
+        for (unsigned int axis = 0; axis < Axis4r::AxisCount(); ++axis) {
             if (axis_controllers_[axis] != nullptr)
                 axis_controllers_[axis]->reset();
         }
@@ -42,12 +48,9 @@ public:
     {
         IController::update();
 
-        const auto& goal_mode = goal_input_->getGoalMode();
+        const auto& goal_mode = goal_->getGoalMode();
 
-        //for now we set throttle to same as goal
-        output_.throttle = goal_input_->getGoal().throttle;
-
-        for (unsigned int axis = 0; axis < 3; ++axis) {
+        for (unsigned int axis = 0; axis < Axis4r::AxisCount(); ++axis) {
             //re-create axis controllers if goal mode was changed since last time
             if (goal_mode[axis] != last_goal_mode_[axis]) {
                 switch (goal_mode[axis]) {
@@ -57,20 +60,32 @@ public:
                 case GoalModeType::AngleLevel:
                     axis_controllers_[axis].reset(new AngleLevelController(params_, clock_));
                     break;
+                case GoalModeType::VelocityWorld:
+                    axis_controllers_[axis].reset(new VelocityController(params_, clock_));
+                    break;
+                case GoalModeType::PositionWorld:
+                    axis_controllers_[axis].reset(new PositionController(params_, clock_));
+                    break;
+                case GoalModeType::Passthrough:
+                    axis_controllers_[axis].reset(new PassthroughController());
+                    break;
+                case GoalModeType::ConstantOutput:
+                    axis_controllers_[axis].reset(new ConstantOutputController());
+                    break;
                 default:
                     throw std::invalid_argument("Axis controller type is not yet implemented for axis " 
                         + std::to_string(axis));
                 }
 
                 //initialize axis controller
-                axis_controllers_[axis]->initialize(axis, goal_input_, state_estimator_);
+                axis_controllers_[axis]->initialize(axis, goal_, state_estimator_);
                 axis_controllers_[axis]->reset();
             }
 
             //update axis controller
             if (axis_controllers_[axis] != nullptr) {
                 axis_controllers_[axis]->update();
-                output_.axis3[axis] = axis_controllers_[axis]->getOutput();
+                output_[axis] = axis_controllers_[axis]->getOutput();
             }
             else
                 comm_link_->log(std::string("Axis controller type is not set for axis ").append(std::to_string(axis)), ICommLink::kLogLevelError);
@@ -87,7 +102,7 @@ private:
     const Params* params_;
     const IBoardClock* clock_;
 
-    const IGoalInput* goal_input_;
+    const IGoal* goal_;
     const IStateEstimator* state_estimator_;
     ICommLink* comm_link_;
 
@@ -95,7 +110,7 @@ private:
 
     GoalMode last_goal_mode_;
 
-    std::unique_ptr<IAxisController> axis_controllers_[kAxisCount];
+    std::unique_ptr<IAxisController> axis_controllers_[Axis4r::AxisCount()];
 };
 
 }

@@ -5,9 +5,9 @@
 
 namespace simple_flight {
 
-class IGoalInput : public IUpdatable {
+class IGoal {
 public:
-    virtual const Axis4r& getGoal() const = 0;
+    virtual const Axis4r& getGoalValue() const = 0;
     virtual const GoalMode& getGoalMode() const = 0;
 };
 

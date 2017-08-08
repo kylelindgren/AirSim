@@ -8,6 +8,9 @@
 #include "PidController.hpp"
 #include "common/common_utils/Utils.hpp"
 #include <memory>
+#include <string>
+#include <exception>
+
 
 namespace simple_flight {
 
@@ -18,14 +21,17 @@ public:
     {
     }
 
-    virtual void initialize(unsigned int axis, const IGoalInput* goal_input, const IStateEstimator* state_estimator) override
+    virtual void initialize(unsigned int axis, const IGoal* goal, const IStateEstimator* state_estimator) override
     {
+        if (axis > 2)
+            throw std::invalid_argument("AngleRateController only supports axis 0-2 but it was " + std::to_string(axis));
+
         axis_ = axis;
-        goal_input_ = goal_input;
+        goal_ = goal;
         state_estimator_ = state_estimator;
 
         pid_.reset(new PidController<float>(clock_,
-            PidController<float>::Config(params_->pid_p_angle_rate[axis], 0, 0)));
+            PidController<float>::Config(params_->angle_rate_pid.p[axis], 0, 0)));
     }
 
     virtual void reset() override
@@ -40,7 +46,7 @@ public:
     {
         IAxisController::update();
 
-        pid_->setGoal(goal_input_->getGoal().axis3[axis_]);
+        pid_->setGoal(goal_->getGoalValue()[axis_]);
         pid_->setMeasured(state_estimator_->getAngulerVelocity()[axis_]);
         pid_->update();
 
@@ -54,7 +60,7 @@ public:
 
 private:
     unsigned int axis_;
-    const IGoalInput* goal_input_;
+    const IGoal* goal_;
     const IStateEstimator* state_estimator_;
 
     TReal output_;
