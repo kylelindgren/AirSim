@@ -62,7 +62,9 @@ class AirSimClient:
         def getGpsLocation(self):
             return self.client.call('getGpsLocation')
         def getHomePoint(self):
-            return self.client.call('getHomePoint')
+            return self.client.call('getHomeGeoPoint')
+        def getHomeGeoPoint(self):
+            return self.client.call('getHomeGeoPoint')
         def getRollPitchYaw(self):
             return self.toEulerianAngle(self.getOrientation())
 

@@ -1,5 +1,6 @@
 {
 	"FileVersion": 3,
+	"EngineAssociation": "{205CFA50-3407-151D-0012-0381B285AF0C}",
 	"Category": "",
 	"Description": "",
 	"Modules": [
@@ -17,6 +18,5 @@
 			"Name": "AirSim",
 			"Enabled": true
 		}
-	],
-	"EngineAssociation": "4.16"
+	]
 }

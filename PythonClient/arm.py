@@ -22,6 +22,7 @@ print("Home lat=%g, lon=%g, alt=%g" % tuple(home))
 client.arm()
 if (client.getLandedState() == LandedState.Landed):
     print("Taking off...")
+    time.sleep(1)  # otherwise error: takeoff command rejected by drone
     if (not client.takeoff(60)):
         print("failed to reach takeoff altitude after 60 seconds")
         sys.exit(1);
@@ -30,5 +31,5 @@ else:
     print("it appears the drone is already flying")
 
 client.hover();
-time.sleep(5)
+time.sleep(3)
 
