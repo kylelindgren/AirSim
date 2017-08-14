@@ -54,7 +54,7 @@ while True and not rospy.is_shutdown():
         sys.exit(0)
     else:
         png = cv2.imdecode(rawImage, cv2.IMREAD_UNCHANGED)
-        msg = bridge.cv2_to_imgmsg(png, encoding="bgr8")
+        msg = bridge.cv2_to_imgmsg(png, encoding="bgra8")
         cv2.imshow("Depth", png)
         # out.write(png)
 
