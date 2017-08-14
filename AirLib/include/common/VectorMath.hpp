@@ -47,8 +47,8 @@ public:
 
     struct Pose {
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        Vector3T position;
-        QuaternionT orientation;
+        Vector3T position = Vector3T::Zero();
+        QuaternionT orientation = QuaternionT(1, 0, 0, 0);
 
         Pose() 
         {}
