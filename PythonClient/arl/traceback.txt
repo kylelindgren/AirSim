@@ -1,0 +1,23 @@
+Traceback (most recent call last):
+  File "/home/vinicius/anaconda3/envs/arl/lib/python3.5/site-packages/pudb/__init__.py", line 93, in runscript
+    dbg._runscript(mainpyfile)
+  File "/home/vinicius/anaconda3/envs/arl/lib/python3.5/site-packages/pudb/debugger.py", line 444, in _runscript
+    self.run(statement, globals=globals_, locals=locals_)
+  File "/home/vinicius/anaconda3/envs/arl/lib/python3.5/bdb.py", line 431, in run
+    exec(cmd, globals, locals)
+  File "<string>", line 1, in <module>
+  File "main.py", line 134, in <module>
+    main()
+  File "main.py", line 45, in main
+    drone = CustomAirSim(n_steps, inf_mode=inf_mode, use_gui=use_gui)
+  File "/home/vinicius/Projects/arl/arl/support.py", line 507, in __init__
+    self.connect_AirSim()
+  File "/home/vinicius/Projects/arl/arl/support.py", line 561, in connect_AirSim
+    home = self.getHomePoint()
+  File "/home/vinicius/Projects/arl/arl/PythonClient.py", line 65, in getHomePoint
+    return self.client.call('getHomePoint')
+  File "/home/vinicius/anaconda3/envs/arl/lib/python3.5/site-packages/msgpackrpc/session.py", line 41, in call
+    return self.send_request(method, args).get()
+  File "/home/vinicius/anaconda3/envs/arl/lib/python3.5/site-packages/msgpackrpc/future.py", line 43, in get
+    raise self._error
+msgpackrpc.error.TransportError: Retry connection over the limit
