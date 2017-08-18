@@ -31,4 +31,5 @@ def listener():
     rospy.spin()
 
 if __name__=="__main__":
+    print "turtlebot keyboard listener running"
     listener()
