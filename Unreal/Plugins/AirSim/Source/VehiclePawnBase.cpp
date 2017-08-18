@@ -34,21 +34,23 @@ void AVehiclePawnBase::setupCamerasFromSettings()
 
     Settings& settings = Settings::singleton();
     Settings scene_settings_child, depth_settings_child, seg_settings_child;
-    APIPCamera::CaptureSettings scene_settings, depth_settings, seg_settings;
+    APIPCamera::CaptureSettings scene_settings, depth_settings, seg_settings, normals_settings;;
     scene_settings.target_gamma = APIPCamera::CaptureSettings::kSceneTargetGamma;
     if (settings.getChild("SceneCaptureSettings", scene_settings_child))
         createCaptureSettings(scene_settings_child, scene_settings);
-    if (settings.getChild("DepthCaptureSettings", depth_settings_child))
-        createCaptureSettings(depth_settings_child, depth_settings);
     if (settings.getChild("SegCaptureSettings", seg_settings_child))
         createCaptureSettings(seg_settings_child, seg_settings);
-
+    if (settings.getChild("DepthCaptureSettings", depth_settings_child))
+        createCaptureSettings(depth_settings_child, depth_settings);
+    if (settings.getChild("NormalsCaptureSettings", depth_settings_child))
+        createCaptureSettings(depth_settings_child, normals_settings);  //TODO: use separate settings?
 
     for (int camera_index = 0; camera_index < getCameraCount(); ++camera_index) {
         APIPCamera* camera = getCamera(camera_index);
         camera->setCaptureSettings(ImageType_::Scene, scene_settings);
-        camera->setCaptureSettings(ImageType_::Depth, depth_settings);
         camera->setCaptureSettings(ImageType_::Segmentation, seg_settings);
+        camera->setCaptureSettings(ImageType_::Depth, depth_settings);
+        camera->setCaptureSettings(ImageType_::Normals, normals_settings);
     }
 }
 
@@ -257,7 +259,7 @@ void AVehiclePawnBase::setPose(const Pose& pose, const Pose& debug_pose)
         this->SetActorLocationAndRotation(position, orientation, true);
 
     if (state_.tracing_enabled && (state_.last_position - position).SizeSquared() > 0.25) {
-        UKismetSystemLibrary::DrawDebugLine(this->GetWorld(), state_.last_position, position, FColor::Purple, 0.0f, 3.0f);
+        UKismetSystemLibrary::DrawDebugLine(this->GetWorld(), state_.last_position, position, FColor::Purple, -1, 3.0f);
         state_.last_position = position;
     }
     else if (!state_.tracing_enabled) {
@@ -267,7 +269,7 @@ void AVehiclePawnBase::setPose(const Pose& pose, const Pose& debug_pose)
     if (state_.tracing_enabled && !VectorMath::hasNan(debug_pose.position)) {
         FVector debug_position = state_.current_debug_position - state_.debug_position_offset;
         if ((state_.last_debug_position - debug_position).SizeSquared() > 0.25) {
-            UKismetSystemLibrary::DrawDebugLine(this->GetWorld(), state_.last_debug_position, debug_position, FColor(0xaa, 0x33, 0x11), 0, 10.0F);
+            UKismetSystemLibrary::DrawDebugLine(this->GetWorld(), state_.last_debug_position, debug_position, FColor(0xaa, 0x33, 0x11), -1, 10.0F);
             UAirBlueprintLib::LogMessage("Debug Pose: ", debug_position.ToCompactString(), LogDebugLevel::Informational);
             state_.last_debug_position = debug_position;
         }
