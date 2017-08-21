@@ -6,15 +6,15 @@
 
 STRICT_MODE_OFF
 //below headers are required for using windows.h types in Unreal
-#include "Windows/WindowsHWrapper.h"
-#include <XInput.h>
+//#include "Windows/WindowsHWrapper.h"
+//#include <XInput.h>
 
 //Below is old way of doing it?
 //#include "AllowWindowsPlatformTypes.h"
-//#define WIN32_LEAN_AND_MEAN
-//#define NOMINMAX
-//#include <windows.h>
-//#include <XInput.h>
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <XInput.h>
 //#include "HideWindowsPlatformTypes.h"
 STRICT_MODE_ON
 
@@ -28,12 +28,16 @@ public:
         }
 
         // Simply get the state of the controller from XInput.
-        auto dwResult = XInputGetState(index, &controllers_[index].state);
+        DWORD dwResult = XInputGetState(index, &controllers_[index].state);
 
-        if( dwResult == ERROR_SUCCESS )
+        if (dwResult == ERROR_SUCCESS) {
             controllers_[index].bConnected = true;
-        else
+            state.connection_error_code = 0;
+        }
+        else {
             controllers_[index].bConnected = false;
+            state.connection_error_code = dwResult;
+        }
 
         state.is_connected = controllers_[index].bConnected;
 
