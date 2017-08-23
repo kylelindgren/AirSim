@@ -1,0 +1,23 @@
+activate tensorflow virtual environment: source ~/tensorflow/bin/activate
+	to deactivate: (tensorflow)$ deactivate
+
+anaconda env info: https://www.reddit.com/r/Python/comments/45aczf/anaconda_not_able_to_import_the_packages_like/
+
+main.py
+	read config_main.ini
+	set agent (human, imitation, intervention, dqn - nn)
+	run experiment mode (training nn models, testing, training human)
+
+support.py
+experiment mode: train_human()
+	loop for given # of episodes
+		resets reward, time, observation
+		loop for given # of steps
+			select action based on current observation
+			record past observation
+			save past observation and action taken
+			execute selected action, get new observation and reward
+			work on replay when recording human data
+			save reward and action taken
+			check if goal or if reached any other simulation limit
+

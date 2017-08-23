@@ -1,0 +1,28 @@
+Paper Intro Draft 2.0
+
+# BACKGROUND + PROBLEM YOU WANT TO SOLVE
+Intelligent robots have the potential to positively impact multiple branches of the society.
+Part of this success will depend on how these learning robots and humans are integrated and the underlying motivation that drives the behavior of these autonomous agents.
+It is desired to design a framework to train and shape behavior of intelligent robotic agents to comply with human expectation.
+Leveraging the cognitive capacity the human brain already have, humans should be able to safely and efficiently teach new tasks and learning robots should be able to grasp human expectation and maximize its underlying goals.
+
+# WHAT YOU ARE TRYING TO DO
+This paper proposes the \nameProj framework as a study to better understand how to use human resources more efficiently while training robots,
+how to safely transfer human intention and teach new tasks to machines, and how to make this framework applicable to autonomous robotic agents
+performing real-world tasks.
+
+# LIMITS OF THE CURRENT PRACTICE
+Re-framing real-world tasks as Reinforcement Learning problems "seem to be a good fit". Through interactions with the environment the robot agent can learn to maximize
+the reward signal after each action. Considering it is desired to train intelligent agents to act in accordance to human expectation, the challenge becomes on how to better
+translate human expectation to a reward function in a way the same framework can be applied to arbitrary tasks.
+
+Combine to deep neural networks, current Reinforcement Learning algorithms have "great" performance in multiples tasks and environments. However, naively applying
+these algorithms as end-to-end solutions might not be the best solution "for real robotis tasks"
+
+
+# NEW APPROACH
+** GO TO THE POINT, OVERVIEW THE TECHNICAL APPROACH **
+
+
+
+# METRICS
