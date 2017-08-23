@@ -53,7 +53,12 @@ def process_avg(run_id, n_items=3):
     for i in range (1,n_items):
         # load each other file
         temp_data = np.genfromtxt(root_file + str(i) +'.csv', delimiter=',')
-        rewards = temp_data[:,1].reshape(len(data),1)
+        # append zeros on temp_data if shorter than data
+        if len(temp_data) < len(data):
+            for i in range (len(temp_data), len(data)):
+                temp_data = np.vstack((temp_data, (0.0, 0.0, 0.0)))
+        # issue len(temp_data) != len(data) -> temp_data[:len(data),1] - KL
+        rewards = temp_data[:len(data),1].reshape(len(data),1)
 
         # apprend rewards only to original dataset
         data = np.hstack((data,rewards))
@@ -68,4 +73,4 @@ def process_avg(run_id, n_items=3):
     plot_history(avg_plot, std_dev, save_pic=False, name_pic=run_id+'.png')
 
 if __name__ == '__main__':
-    process_avg('exp1',20)
+    process_avg('test',10)

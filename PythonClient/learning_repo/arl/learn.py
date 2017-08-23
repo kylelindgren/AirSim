@@ -390,6 +390,7 @@ class ImitationAgent(object):
 
     def __init__(self, env, n_episodes):
         self.name = 'imitation'
+        self.ground = False  # KL
         # get env characteristics
         self.action_space = env.action_space
 

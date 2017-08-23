@@ -50,7 +50,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
     # reset environment/model
     data_folder = '../data/'
     best_reward = -1e6
-    total_done = 0
+    total_done = 0.0
 
     # run for a given number of episodes
     for i_episode in range(n_episodes):
@@ -148,6 +148,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
 
             # check if goal or if reached any other simulation limit
             if done:
+                total_done = total_done + 1.0
                 print("Episode finished after {} steps.".format(t + 1))
                 break
 
