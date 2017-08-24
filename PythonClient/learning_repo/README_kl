@@ -1,5 +1,33 @@
-activate tensorflow virtual environment: source ~/tensorflow/bin/activate
-	to deactivate: (tensorflow)$ deactivate
+# ===================================================================================
+# 	training results
+# ===================================================================================
+
+test_20_net_123
+	epochs: 200
+		final train values:
+			loss: 0.0729 - acc: 0.9023 - val_loss: 0.1758 - val_acc: 0.8004
+		fails everytime - immediately veers right but then left into pillar 2
+
+test_20_net_1243
+	epochs: 100
+		final train values:
+			loss: 0.0933 - acc: 0.8782 - val_loss: 0.1560 - val_acc: 0.8058
+		fails everytime - traverses between pillars 1-2, veers right narrowly catching 3
+	epochs: 200
+		final train values:
+			loss: 0.0395 - acc: 0.5177 - val_loss: 0.2237 - val_acc: 0.7268
+		successfully snakes through the pillars for all episodes
+
+
+# ===================================================================================
+# 	design of experiment
+# ===================================================================================
+
+random init home position
+	take different paths through pillars
+
+# ===================================================================================
+# ===================================================================================
 
 anaconda env info: https://www.reddit.com/r/Python/comments/45aczf/anaconda_not_able_to_import_the_packages_like/
 
@@ -20,4 +48,35 @@ experiment mode: train_human()
 			work on replay when recording human data
 			save reward and action taken
 			check if goal or if reached any other simulation limit
+
+
+sample operation:
+	human behavior
+		config_main.ini
+			n_episodes = 10
+			run_id = meow
+			agent = human
+			ground = True
+			cv_mode = True
+			exp = 0
+		python main.py
+			human avoids obstacles for n_episodes
+			results saved in ../data folder
+				run_id_imit_n.csv
+				run_id_avg_n.csv
+	train network
+		python neural.py
+			run_id = run_id from config_main.ini
+			n_items = n_episodes
+			output stored in ../neural_models folder
+				neural_name provided in save_neural() inside train_model()
+	test network
+		config_main.ini
+			agent = imitation
+			all other parameters same
+		learn.py
+			class ImitationAgen()
+				__init__()
+					self.model = load_neural(name='neural_name', ...)
+		python main.py
 

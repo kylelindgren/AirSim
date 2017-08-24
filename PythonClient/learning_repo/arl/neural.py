@@ -68,7 +68,7 @@ def save_neural(model, name):
     # serialize weights to HDF5
     model.save_weights(folder_loc + name + ".h5")
 
-    print("Saved model to disk. Name = ", name)
+    print "Saved model to disk. Name = " + name
 
 class DeepNeuralNet(object):
     """
@@ -103,7 +103,7 @@ class DeepNeuralNet(object):
             model.add(Dropout(self.dropout))
 
         # hidden layers
-        for i in range(2,self.hidden_layers+1):
+        for i in range(2, self.hidden_layers+1):
             model.add(Dense(self.neurons[i], init='lecun_uniform', activation='relu'))
             if self.dropout != 0:
                 model.add(Dropout(self.dropout))
@@ -145,7 +145,7 @@ class ImitationNetwork(object):
             self.create_dqn()
         else:
             # self.create_model()
-            self.create_model_conv_lstm()
+            self.create_model()
 
     def create_dqn(self):
         """
@@ -154,6 +154,7 @@ class ImitationNetwork(object):
         self.name = 'dqn_conv'
 
         model = Sequential()
+
         model.add(Conv2D(32, (3, 3), input_shape=(self.height, self.width, 1)))
         model.add(Activation('relu'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -168,7 +169,7 @@ class ImitationNetwork(object):
         model.add(Dense(128))
         model.add(Activation('relu'))
         model.add(Dropout(0.5))
-        model.add(Dense(3)) # right now hardcoded to -1, 0, 1
+        model.add(Dense(self.n_act)) # right now hardcoded to -1, 0, 1
         model.add(Activation('linear'))
 
         model.compile(loss='mse',
@@ -187,33 +188,38 @@ class ImitationNetwork(object):
         self.name = 'conv'
 
         model = Sequential()
+
+        # 1
         model.add(Conv2D(32, (3, 3), input_shape=(self.height, self.width, 1)))
         model.add(Activation('relu'))
-        model.add(BatchNormalization())
         model.add(MaxPooling2D(pool_size=(2, 2)))
 
+        # 2
+        model.add(Conv2D(32, (3, 3), input_shape=(self.height, self.width, 1)))
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
+
+        # 4
         model.add(Conv2D(64, (3, 3)))
         model.add(Activation('relu'))
         model.add(BatchNormalization())
         model.add(MaxPooling2D(pool_size=(2, 2)))
 
-        model.add(Conv2D(128, (3, 3)))
-        model.add(Activation('relu'))
-        model.add(BatchNormalization())
-        model.add(MaxPooling2D(pool_size=(2, 2)))
+        # model.add(Conv2D(128, (3, 3)))
+        # model.add(Activation('relu'))
+        # model.add(BatchNormalization())
+        # model.add(MaxPooling2D(pool_size=(2, 2)))
 
         # the model so far outputs 3D feature maps (height, width, features)
-
+        # 3
         model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
-        model.add(Dense(128))
+        model.add(Dense(32))
         model.add(Activation('relu'))
-        model.add(BatchNormalization())
         model.add(Dropout(0.5))
         model.add(Dense(self.n_act))
         model.add(Activation('linear'))
-        model.add(BatchNormalization())
 
-        model.compile(loss='binary_crossentropy',
+        model.compile(loss='mse',
                       optimizer='adam',
                       metrics=['accuracy'])
 
@@ -395,15 +401,15 @@ class ImitationNetwork(object):
             data = np.vstack((data,temp_data))
 
         # split states and actions
-        x = data[:,:-n_act] / 255
+        x = data[:,:-n_act]
         y = data[:,-n_act:]
 
-        # capture oroiginal size of features and samples
+        # capture original size of features and samples
         samples = x.shape[0]
         features = x.shape[1]
-        print('Number of samples: ', samples)
-        print('x features: ', features)
-        print('y features: ', y.shape[1])
+        print 'Number of samples: ' + str(samples)
+        print 'x features: ' + str(features)
+        print 'y features: ' + str(y.shape[1])
 
         # reshape to sequence, if lstm
         if self.name == 'conv_lstm':
@@ -443,14 +449,14 @@ class ImitationNetwork(object):
 
         # train
         hist_train = model.fit(x, y, batch_size=self.batch_size,
-                         epochs=10,
+                         epochs=200,
                          shuffle=False,
                          validation_split=.2,
-                         verbose=1)#,
+                         verbose=2)#,
                         #  callbacks=[early_stop])
 
         # plot train history
-        save_neural(self.model, 'exp4_imit')
+        save_neural(self.model, run_id + '_net_1243')
         self.plot_train_hist(run_id, hist_train)
 
 
@@ -468,8 +474,8 @@ class ImitationNetwork(object):
         else:
             img_input = img_input.reshape((samples, self.height, self.width, 1))
         act = self.model.predict(img_input, batch_size=1, verbose=2)
-        print('Action shape: ', act.shape)
-        print('Last action: ', act[:,-1,:])
+        print 'Action shape: ' + str(act.shape)
+        print 'Last action: ' + str(act[:])
 
         return act
 
@@ -520,12 +526,12 @@ class ImitationNetwork(object):
 
 if __name__ == '__main__':
     # test training
-    run_id = 'exp4_mini'
-    n_items = 1
-    n_act = 2
+    run_id = 'test_20'
+    n_items = 20
+    n_act = 1
 
     net = ImitationNetwork(n_act=n_act)
-    net.train_model(run_id,n_items,n_act)
+    net.train_model(run_id, n_items, n_act)
 
     # test predicting
     print(net.model_predict(net.x))

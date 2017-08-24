@@ -86,11 +86,12 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
         start_epi_time = time.time()
         for t in range(n_steps):
             if t % 100 == 0:
-                print('Episode ',t)
+                print 'Step ' + str(t)
 
             start_step_time = time.time()
             # select action based on current observation
             action = agent.act(observation)
+            # print action
 
             # record past observation
             past_observation = np.copy(observation)
@@ -156,7 +157,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
             # print('Running at %i Hz.' %(1/(time.time()-start_step_time)))
 
         # end of episode
-        print('* End of episode *')
+        print '* End of episode *'
         print('Total episode time: %.2f seconds.' %(time.time()-start_epi_time))
         print('Total reward: %.2f' % total_reward)
 
@@ -188,9 +189,9 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
     process_avg(run_id, n_episodes)
 
     # go home
-    print('Going HOME...')
+    print 'Going HOME...' 
     env.drone_gohome()
-    print('DONE! Thank you! :)')
+    print 'DONE! Thank you! :)'
 
 def train_model_multi(run_id, env, agent, n_episodes=1, n_steps=50):
     """
@@ -927,7 +928,10 @@ class CustomAirSim(AirSimClient, gym.Env):
                 # return pic, only first channel is enough for depth
                 # apply threshold
                 # png[:,:,0] = self.tsh_distance(100,png[:,:,0])
-                return png[:,:,0]
+                # cv2.imshow('depth', png[:, :, 2])
+                # cv2.waitKey(1)
+                # airsim update changes depth image output - KL
+                return png[:, :, 2]
             else:
                 print('Couldnt take one depth pic.')
                 return np.zeros((144,256)) # empty picture
@@ -1223,10 +1227,15 @@ class CustomAirSim(AirSimClient, gym.Env):
         Resize image. Converts and down-samples the input image.
         """
         # resize img
-        res = cv2.resize(img,None,fx=self.reduc_factor, fy=self.reduc_factor, interpolation = cv2.INTER_AREA)
-
+        # cv2.imshow('orig', img)
+        res = cv2.resize(img, None, fx=self.reduc_factor, fy=self.reduc_factor, interpolation=cv2.INTER_AREA)
+        # cv2.imshow('processed', res)
+        # cv2.waitKey(1)
         # normalize image
-        res = res / 255
+        res = res / 255.0  # change 255 -> 255.0 for float calc - KL (Py2.7)
+        # print res
+        # cv2.imshow('processed, normalized', res)
+        # cv2.waitKey(1)
 
         return res
 
@@ -1283,8 +1292,24 @@ class GroundAirSim(CustomAirSim, gym.Env):
         """
         Sets position and orientation for cv mode ground vehicle.
         """
-
         duration = self.dt
+
+        # from AirSim/AirLib/include/api/RpcLibAdapters.hpp
+        # struct CollisionInfo {
+        #     bool has_collided = false;
+        #     Vector3r normal;
+        #     Vector3r impact_point;
+        #     Vector3r position;
+        #     msr::airlib::real_T penetration_depth = 0;
+        #     msr::airlib::TTimePoint time_stamp = 0;
+        #     ...
+
+        collision = self.getCollisionInfo()
+        if collision[0] is True:
+            print "Collision detected --> Resetting to Home position."
+            self.drone_gohome()
+            return duration
+
         pos = self.getPosition()
         orq = self.getOrientation()
         ore = self.toEulerianAngle(orq)
@@ -1292,58 +1317,25 @@ class GroundAirSim(CustomAirSim, gym.Env):
         scale_xy = 3
         scale_th = 1
 
-        if key == 9 or key == 8 or key == 2:
-            self.prev_xy_key = self.prev_th_key = 9
-        else:            
-            if key == 4:
-                ore = [ore[0], ore[1], ore[2] - scale_th*duration]
-                orq = self.toQuaternion(ore)
-            elif key == 6:
-                ore = [ore[0], ore[1], ore[2] + scale_th*duration]
-                orq = self.toQuaternion(ore)
+        # if key == 0:
+        #     self.prev_xy_key = self.prev_th_key = 0
+        # else:            
+        #     if key == -1:
+        #         ore = [ore[0], ore[1], ore[2] - scale_th*duration]
+        #         orq = self.toQuaternion(ore)
+        #     elif key == 1:
+        #         ore = [ore[0], ore[1], ore[2] + scale_th*duration]
+        #         orq = self.toQuaternion(ore)
+
+        # if abs(key) > 1:
+        #     key = np.clip(key, -1, 1)
+        #     print "clipped key: " + str(key)
+        ore = [ore[0], ore[1], ore[2] + key*scale_th*duration]
+        orq = self.toQuaternion(ore)
 
         # constant velocity forward
         pos[0] = pos[0] + math.cos(ore[2])*scale_xy*duration
         pos[1] = pos[1] + math.sin(ore[2])*scale_xy*duration
-
-        # if key == 9:
-        #     self.prev_xy_key = self.prev_th_key = 9
-        # else:
-            # if key == 8 or self.prev_xy_key == 8:
-            #     if key == 2:
-            #         self.prev_xy_key = 8
-                # else:
-                #     pos[0] = pos[0] + math.cos(ore[2])*scale_xy*duration
-                #     pos[1] = pos[1] + math.sin(ore[2])*scale_xy*duration
-            #         self.prev_xy_key = 8
-            # elif key == 2 or self.prev_xy_key == 2:
-            #     if key == 8:
-            #         self.prev_xy_key = 2
-            #     else:
-            #         pos[0] = pos[0] - math.cos(ore[2])*scale_xy*duration
-            #         pos[1] = pos[1] - math.sin(ore[2])*scale_xy*duration
-            #         self.prev_xy_key = 2
-            
-            # if key == 4:
-            #     if self.prev_th_key == 9 or self.prev_th_key == 4:
-            #         ore = [ore[0], ore[1], ore[2] - scale_th*duration]
-            #         orq = self.toQuaternion(ore)
-            #         self.prev_th_key = 4
-            #     elif self.prev_th_key == 6:
-            #         self.prev_th_key = 9
-            #     else:
-            #         print "Unrecognized 'prev_th_key'"
-            #         self.prev_th_key = 9
-            # elif key == 6:
-            #     if self.prev_th_key == 9 or self.prev_th_key == 6:
-            #         ore = [ore[0], ore[1], ore[2] + scale_th*duration]
-            #         orq = self.toQuaternion(ore)
-            #         self.prev_th_key = 6
-            #     elif self.prev_th_key == 4:
-            #         self.prev_th_key = 9
-            #     else:
-            #         print "Unrecognized 'prev_th_key'"
-            #         self.prev_th_key = 9
 
         self.simSetPose(pos, orq)
 
@@ -1355,7 +1347,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         Brake the ground vehicle by canceling turn commands.
         Sends arbitrary turn 'key'
         """
-        self.drone_turn(9)  
+        self.drone_turn(0)  
         
 
     def drone_gohome(self):
@@ -1367,6 +1359,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         self.simSetPose([pos[0], pos[1], -20.0], self.orq0)
         self.simSetPose([self.pos0[0], self.pos0[1], -20.0], self.orq0)
         self.simSetPose(self.pos0, self.orq0)
+        time.sleep(2)
 
     # def gohome_turtle(self):
     #     """
@@ -1426,6 +1419,35 @@ class GroundAirSim(CustomAirSim, gym.Env):
         return res, reward, done, {}
 
 
+    def step_dqn(self, action):
+        """
+        Step agent based on computed action.
+        Return reward and if check if episode is done.
+        """
+        # map action (example: convert from 0,1,2 to -1,0,1)
+        # action = action - 1  # from CustomAirSim class - KL
+
+        # wait_time = self.drone_turn(float(action))
+        wait_time = self.drone_turn(float(action))
+        time.sleep(wait_time)
+
+        # get next state
+        img = self.grab_depth()
+        res = self.preprocess(img)
+
+        # compute reward
+        reward = self.compute_reward(res)
+
+        # check if done
+        current_pos = self.getPosition()
+        if current_pos[0] < self.map_length: # 50 for small course / 105 for big
+            done = 0
+        else:
+            done = 1
+
+        return res, reward, done, {}
+
+
     def reset(self):
         """
         Ground vehicle does not takeoff or need home set (cv mode) like 
@@ -1445,6 +1467,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         """
         return spaces.Box(low=np.array(-1),
                           high=np.array(1))
+        # return spaces.Discrete(3)  # idk - KL
 
     @property
     def observation_space(self):

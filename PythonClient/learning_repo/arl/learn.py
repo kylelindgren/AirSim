@@ -405,8 +405,8 @@ class ImitationAgent(object):
 
         # load network
         print('Loading neural network...')
-        self.normalized = False
-        self.model = load_neural(name='eval_imit_19', loss='mse', opt='adam')
+        self.normalized = True
+        self.model = load_neural(name='test_20_net_1243', loss='mse', opt='adam')
         # lrate = .01
         # epochs = 300
         # decay = lrate/epochs
@@ -427,7 +427,7 @@ class ImitationAgent(object):
         else:
             img_input = 255*img_input.reshape((samples, self.height, self.width, 1))
         act = self.model.predict(img_input, batch_size=1, verbose=2)
-        # print(act)
+        # print act
 
         # # random action
         # act = [np.random.randint(-1, 1, 1)]
@@ -453,6 +453,11 @@ class HumanAgent(object):
         # flag to use replay buffer
         self.has_replay = False
         self.history = np.zeros((n_episodes, 2))  # step and rew
+
+        # intervention flag to allow human control
+        self.interv = False
+        self.interv_time = 0 # measure interval between each intervention
+
 
         # initialize pygame for inputs
         pygame.display.init()
@@ -537,31 +542,31 @@ class HumanAgent(object):
                 if event.type == pygame.KEYDOWN:
                     
                     if event.key == pygame.K_UP:
-                        act = 8
+                        act = 0
 
                     if event.key == pygame.K_DOWN:
-                        act = 2
+                        act = 0
 
                     if event.key == pygame.K_LEFT:
-                        act = 4
+                        act = -1
 
                     if event.key == pygame.K_RIGHT:
-                        act = 6
+                        act = 1
 
                     if event.key == pygame.K_w:
-                        act = 5
+                        act = 0
 
                     if event.key == pygame.K_a:
-                        act = 4
+                        act = -1
 
                     if event.key == pygame.K_d:
-                        act = 6
+                        act = 1
 
-                    if event.key == pygame.K_w:
-                        act = 8
+                    if event.key == pygame.K_s:
+                        act = 0
 
                     if event.key == pygame.K_SPACE:
-                        act = 9  # stop
+                        act = 0  # stop
         else:
             for event in pygame.event.get():
                 if event.type == pygame.KEYDOWN:
@@ -708,6 +713,7 @@ class DQN_AirSim(object):
 
         # agent info
         self.name = 'DQN_AirSim'
+        self.ground = False  # KL
         self.history = np.zeros((n_episodes, 2))  # step and rew
         self.rand_counter = 0
         self.act_counter = 0
@@ -723,7 +729,7 @@ class DQN_AirSim(object):
 
         self.n_ob = self.height*self.width # 1 image with height and width, 1 channel
         self.n_ac = 1 # only lat or long and lat actions
-        self.total_n_ac = 3 # -1, 0, 1
+        self.total_n_ac = 1 # -1, 0, 1
 
         # intervention flag to allow human control
         self.interv = False
@@ -810,35 +816,66 @@ class DQN_AirSim(object):
         act = self.last_act
 
         # check for human intervention (space bar pressed)
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
+        if self.ground:  # ground support - KL
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    
+                    if event.key == pygame.K_UP:
+                        act = 0
 
-                if event.key == pygame.K_SPACE:
-                    # reverse interv flag
-                    self.interv = not self.interv
-                    # if intervention, start timer
-                    self.interv_time = time.time()
+                    if event.key == pygame.K_DOWN:
+                        act = 0
 
-                if event.key == pygame.K_d:
-                    act = 2 #self.action_space.high
+                    if event.key == pygame.K_LEFT:
+                        act = -1
 
-                if event.key == pygame.K_a:
-                    act = 0 #self.action_space.low
+                    if event.key == pygame.K_RIGHT:
+                        act = 1
 
-                if event.key == pygame.K_s:
-                    act = 1 # no action
+                    if event.key == pygame.K_w:
+                        act = 0
 
-                if event.key == pygame.K_o:
-                    self.delta_eps = .1
+                    if event.key == pygame.K_a:
+                        act = -1
 
-                if event.key == pygame.K_k:
-                    self.delta_eps = -.1
+                    if event.key == pygame.K_d:
+                        act = 1
 
-                if event.key == pygame.K_u:
-                    self.credit = 10
+                    if event.key == pygame.K_s:
+                        act = 0
 
-                if event.key == pygame.K_h:
-                    self.credit = -10
+                    if event.key == pygame.K_SPACE:
+                        act = 0  # stop
+        else:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    # not sure why change of input nums is necessary - KL
+                    if event.key == pygame.K_SPACE:
+                        # reverse interv flag
+                        self.interv = not self.interv
+                        # if intervention, start timer
+                        self.interv_time = time.time()
+
+                    if event.key == pygame.K_d:
+                        act = 2 #self.action_space.high
+
+                    if event.key == pygame.K_a:
+                        act = 0 #self.action_space.low
+
+                    if event.key == pygame.K_s:
+                        act = 1 # no action
+
+                    if event.key == pygame.K_o:
+                        self.delta_eps = .1
+
+                    if event.key == pygame.K_k:
+                        self.delta_eps = -.1
+
+                    if event.key == pygame.K_u:
+                        self.credit = 10
+
+                    if event.key == pygame.K_h:
+                        self.credit = -10
 
         return act
 
@@ -848,7 +885,7 @@ class DQN_AirSim(object):
         """
         def start_imit_deep_rl(command):
             '''
-            Function that handles computation of imitation action and depe rl
+            Function that handles computation of imitation action and deep rl
             using different cores of the cpu.
             '''
             if command == 'imit':
@@ -893,13 +930,13 @@ class DQN_AirSim(object):
             # apply e-greedy policy (chance of picking a random action)
             if (random.random() < self.epsilon):
                 if self.use_imitation:
-                    print('Imitation action.')
+                    # print('Imitation action.')
                     state = 255*state.reshape((1, self.height, self.width, 1))
                     act = self.imit_model.predict(state, batch_size=1, verbose=2)
                     act = np.clip(act,-1,1)
                     act = int(np.rint(act[0]))
                     # convert to 0,1,2 scheme
-                    act = act + 1
+                    # act = act + 1  # KL
                 else:
                     print('Random action.')
                     #choose random action between 0,1,2
@@ -1037,7 +1074,7 @@ class DQN_AirSim(object):
 
         # sample buffer
         mem_s0_all, mem_a_all, mem_rew_all, mem_done_all, mem_s1_all = self.replay.sample_batch(self.batch_size)
-
+      
         # get train values for each experience sampled
         n_samples = mem_a_all.shape[0]
         X_train = np.zeros((n_samples, self.n_ob))
@@ -1068,8 +1105,10 @@ class DQN_AirSim(object):
 
             # update target q-values y with new update
             # print(update)
-            # print(mem_rew)
-            y[0, mem_a] = update
+            # print(mem_rew) 
+
+            # y[0, mem_a] = update
+            y = update  # number of actions is 1D - KL
             # print(y)
 
             # save training data
