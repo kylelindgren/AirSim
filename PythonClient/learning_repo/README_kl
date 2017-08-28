@@ -1,22 +1,44 @@
 # ===================================================================================
 # 	training results
 # ===================================================================================
+Notes from Andrew Ng:
+Deciding What to Do Next
+	Getting more training examples: Fixes high variance
+	Trying smaller sets of features: Fixes high variance
+	Adding features: Fixes high bias
+	Adding polynomial features: Fixes high bias
+	Decreasing λ: Fixes high bias
+	Increasing λ: Fixes high variance
 
 test_20_net_123
 	epochs: 200
-		final train values:
+		final train values: variance
 			loss: 0.0729 - acc: 0.9023 - val_loss: 0.1758 - val_acc: 0.8004
 		fails everytime - immediately veers right but then left into pillar 2
 
 test_20_net_1243
 	epochs: 100
-		final train values:
+		final train values: variance
 			loss: 0.0933 - acc: 0.8782 - val_loss: 0.1560 - val_acc: 0.8058
 		fails everytime - traverses between pillars 1-2, veers right narrowly catching 3
 	epochs: 200
-		final train values:
+		final train values: high variance
 			loss: 0.0395 - acc: 0.5177 - val_loss: 0.2237 - val_acc: 0.7268
-		successfully snakes through the pillars for all episodes
+		successfully snakes through the pillars for 20/20 episodes
+		successfully veers left past pillars for 17/20 episodes when y+-1.5 start
+			failed (3) for all y+1.5 start
+	after self.set_z = 0.97
+	imit_20_net_1243_100
+		final train values:
+			loss: 0.0874 - acc: 0.8896 - val_loss: 0.2595 - val_acc: 0.7013
+		y-1.5: hits pillar 1
+		y+0: hits right wall
+		y+1.5: success
+	imit_20_net_1243_200
+		final train values:
+			loss: 0.0706 - acc: 0.9170 - val_loss: 0.2042 - val_acc: 0.7723
+		hits pillar 1 when y-1.5 start, other start locs takes right path
+
 
 
 # ===================================================================================
@@ -50,33 +72,35 @@ experiment mode: train_human()
 			check if goal or if reached any other simulation limit
 
 
-sample operation:
-	human behavior
-		config_main.ini
-			n_episodes = 10
-			run_id = meow
-			agent = human
-			ground = True
-			cv_mode = True
-			exp = 0
-		python main.py
-			human avoids obstacles for n_episodes
-			results saved in ../data folder
-				run_id_imit_n.csv
-				run_id_avg_n.csv
-	train network
-		python neural.py
-			run_id = run_id from config_main.ini
-			n_items = n_episodes
-			output stored in ../neural_models folder
-				neural_name provided in save_neural() inside train_model()
-	test network
-		config_main.ini
-			agent = imitation
-			all other parameters same
-		learn.py
-			class ImitationAgen()
-				__init__()
-					self.model = load_neural(name='neural_name', ...)
-		python main.py
+# ===================================================================================
+# 	sample operation
+# ===================================================================================
+human behavior
+	config_main.ini
+		n_episodes = 10
+		run_id = meow
+		agent = human
+		ground = True
+		cv_mode = True
+		exp = 0
+	python main.py
+		human avoids obstacles for n_episodes
+		results saved in ../data folder
+			run_id_imit_n.csv
+			run_id_avg_n.csv
+train network
+	python neural.py
+		run_id = run_id from config_main.ini
+		n_items = n_episodes
+		output stored in ../neural_models folder
+			neural_name provided in save_neural() inside train_model()
+test network
+	config_main.ini
+		agent = imitation
+		all other parameters same
+	learn.py
+		class ImitationAgen()
+			__init__()
+				self.model = load_neural(name='neural_name', ...)
+	python main.py
 

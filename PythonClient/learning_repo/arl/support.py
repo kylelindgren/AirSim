@@ -136,7 +136,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
             #             start_interv = t
 
             # execute selected action, get new observation and reward
-            observation, reward, done, _ = env.step(action)
+            observation, reward, done, collision = env.step(action)
             total_reward += reward
 
             # stream to gui
@@ -146,6 +146,11 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
 
             # save rew and action taken
             rew_act[t,:] = np.hstack((t,reward,action))
+
+            if collision:
+                print "Collision detected --> Ending episode."
+                time.sleep(2)
+                break
 
             # check if goal or if reached any other simulation limit
             if done:
@@ -1262,23 +1267,26 @@ class GroundAirSim(CustomAirSim, gym.Env):
     """
     Custom class for handling Ground AirSim commands.
     """
-    def __init__(self,n_steps, inf_mode=False, use_gui=False):
+    def __init__(self, n_steps, inf_mode=False, use_gui=False):
         super(GroundAirSim, self).__init__(n_steps, inf_mode, use_gui)
         self.inf_mode = inf_mode
 
-        self.forward_vel = 0.2
+        self.forward_vel = 0.15
         self.vy_scale = 2  
         self.prev_xy_key = 9
         self.prev_th_key = 9
 
+        self.ran_start = True
+
         # parameters for turn maneuver
-        self.set_z = -1  # ground vehicle height # 0.22  # ~9 inches
+        # 1.19 = collision, 1.18 no collision
+        self.set_z = 0.97  # ground vehicle height # 0.22  # ~9 inches
 
         # computer vision params
         pos = self.getPosition()
         orq = self.getOrientation()
         # self.pos0, self.orq0 = (pos, orq)
-        self.pos0, self.orq0 = ([0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0])
+        self.pos0, self.orq0 = ([0.0, 0.0, self.set_z], [1.0, 0.0, 0.0, 0.0])
         self.pos_new, self.orq_new = (pos, orq)
 
         # action limits
@@ -1293,22 +1301,6 @@ class GroundAirSim(CustomAirSim, gym.Env):
         Sets position and orientation for cv mode ground vehicle.
         """
         duration = self.dt
-
-        # from AirSim/AirLib/include/api/RpcLibAdapters.hpp
-        # struct CollisionInfo {
-        #     bool has_collided = false;
-        #     Vector3r normal;
-        #     Vector3r impact_point;
-        #     Vector3r position;
-        #     msr::airlib::real_T penetration_depth = 0;
-        #     msr::airlib::TTimePoint time_stamp = 0;
-        #     ...
-
-        collision = self.getCollisionInfo()
-        if collision[0] is True:
-            print "Collision detected --> Resetting to Home position."
-            self.drone_gohome()
-            return duration
 
         pos = self.getPosition()
         orq = self.getOrientation()
@@ -1356,9 +1348,13 @@ class GroundAirSim(CustomAirSim, gym.Env):
         """
         # move high above obstacles, then down to home position
         pos = self.getPosition()
-        self.simSetPose([pos[0], pos[1], -20.0], self.orq0)
-        self.simSetPose([self.pos0[0], self.pos0[1], -20.0], self.orq0)
-        self.simSetPose(self.pos0, self.orq0)
+        self.simSetPose([pos[0], pos[1], -50.0], self.orq0)
+        self.simSetPose([self.pos0[0], self.pos0[1], -50.0], self.orq0)
+        if self.ran_start:
+            self.simSetPose([self.pos0[0], self.pos0[1] + 1.5*float(np.random.randint(-1, 2, 1)), self.pos0[2]], self.orq0)
+        else:
+            self.simSetPose(self.pos0, self.orq0)
+
         time.sleep(2)
 
     # def gohome_turtle(self):
@@ -1411,12 +1407,23 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         # check if done
         current_pos = self.getPosition()
-        if current_pos[0] < self.map_length:  # KL 110: # 50 small course
-            done = 0
-        else:
-            done = 1
+        done = 0 if current_pos[0] < self.map_length else 1
 
-        return res, reward, done, {}
+        # from AirSim/AirLib/include/api/RpcLibAdapters.hpp
+        # struct CollisionInfo {
+        #     bool has_collided = false;
+        #     Vector3r normal;
+        #     Vector3r impact_point;
+        #     Vector3r position;
+        #     msr::airlib::real_T penetration_depth = 0;
+        #     msr::airlib::TTimePoint time_stamp = 0;
+        #     ...
+        collision = self.getCollisionInfo()
+        # if collision[0] is True:
+        #     print "Collision detected --> Resetting to Home position."
+        #     self.drone_gohome()
+
+        return res, reward, done, collision[0]
 
 
     def step_dqn(self, action):

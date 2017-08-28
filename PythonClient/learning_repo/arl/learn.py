@@ -406,7 +406,7 @@ class ImitationAgent(object):
         # load network
         print('Loading neural network...')
         self.normalized = True
-        self.model = load_neural(name='test_20_net_1243', loss='mse', opt='adam')
+        self.model = load_neural(name='imit_20_net_1243_100', loss='mse', opt='adam')
         # lrate = .01
         # epochs = 300
         # decay = lrate/epochs

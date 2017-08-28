@@ -381,7 +381,7 @@ class ImitationNetwork(object):
         return x, y
 
 
-    def train_model(self, run_id, n_items, n_act = 1, show_example=False):
+    def train_model(self, run_id, n_episodes, n_act = 1, show_example=False):
         """
         Train created model.
         """
@@ -393,7 +393,7 @@ class ImitationNetwork(object):
         root_file = '../data/'+run_id+'_imit_'
         data = np.genfromtxt(root_file+'0.csv', delimiter=',')
 
-        for i in range (1,n_items):
+        for i in range (1, n_episodes):
             # load each other file
             temp_data = np.genfromtxt(root_file + str(i) +'.csv', delimiter=',')
 
@@ -526,12 +526,12 @@ class ImitationNetwork(object):
 
 if __name__ == '__main__':
     # test training
-    run_id = 'test_20'
-    n_items = 20
+    run_id = 'imit_20'
+    n_episodes = 20
     n_act = 1
 
     net = ImitationNetwork(n_act=n_act)
-    net.train_model(run_id, n_items, n_act)
+    net.train_model(run_id, n_episodes, n_act)
 
     # test predicting
     print(net.model_predict(net.x))
