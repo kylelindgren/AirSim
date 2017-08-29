@@ -18,7 +18,7 @@ namespace msr { namespace airlib {
                 DepthVis, 
                 DisparityNormalized,
                 Segmentation,
-                Normals,
+                SurfaceNormals,
                 Count //must be last
             };
 
@@ -33,6 +33,7 @@ namespace msr { namespace airlib {
                 bool pixels_as_float = false;
                 bool compress = true;
                 int width = 0, height = 0;
+                ImageType image_type;
             };
 
         public: //methods
