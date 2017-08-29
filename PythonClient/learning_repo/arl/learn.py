@@ -406,7 +406,8 @@ class ImitationAgent(object):
         # load network
         print('Loading neural network...')
         self.normalized = True
-        self.model = load_neural(name='imit_20_net_1243_100', loss='mse', opt='adam')
+        self.model = load_neural(name='imit_20_dm_net_12365_50', loss='mse', opt='adam')
+        self.lstm = True
         # lrate = .01
         # epochs = 300
         # decay = lrate/epochs
@@ -421,13 +422,22 @@ class ImitationAgent(object):
         # get number of images
         samples = 1 #img_input.shape[0]
 
+        if self.lstm:
         # reshape input to fit on keras
-        if self.normalized:
-            img_input = img_input.reshape((samples, self.height, self.width, 1))
+            if self.normalized:
+                img_input = img_input.reshape((samples, self.height, self.width, 1))
+            else:
+                img_input = 255*img_input.reshape((samples, self.height, self.width, 1))
+            act = self.model.predict(img_input.reshape((samples-2, 1, self.height, self.width, 1)), batch_size=1, verbose=2)
+            act = act[0]
+            # print act
         else:
-            img_input = 255*img_input.reshape((samples, self.height, self.width, 1))
-        act = self.model.predict(img_input, batch_size=1, verbose=2)
-        # print act
+            if self.normalized:
+                img_input = img_input.reshape((samples, self.height, self.width, 1))
+            else:
+                img_input = 255*img_input.reshape((samples, self.height, self.width, 1))
+            act = self.model.predict(img_input, batch_size=1, verbose=2)
+            # print act
 
         # # random action
         # act = [np.random.randint(-1, 1, 1)]

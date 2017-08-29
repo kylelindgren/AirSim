@@ -10,24 +10,27 @@ Deciding What to Do Next
 	Decreasing λ: Fixes high bias
 	Increasing λ: Fixes high variance
 
+a3c implementation: https://jaromiru.com/2017/03/26/lets-make-an-a3c-implementation/
+
 test_20_net_123
 	epochs: 200
 		final train values: variance
 			loss: 0.0729 - acc: 0.9023 - val_loss: 0.1758 - val_acc: 0.8004
-		fails everytime - immediately veers right but then left into pillar 2
+		fails every time - immediately veers right but then left into pillar 2
 
 test_20_net_1243
 	epochs: 100
 		final train values: variance
 			loss: 0.0933 - acc: 0.8782 - val_loss: 0.1560 - val_acc: 0.8058
-		fails everytime - traverses between pillars 1-2, veers right narrowly catching 3
+		fails every time - traverses between pillars 1-2, veers right narrowly catching 3
 	epochs: 200
 		final train values: high variance
 			loss: 0.0395 - acc: 0.5177 - val_loss: 0.2237 - val_acc: 0.7268
 		successfully snakes through the pillars for 20/20 episodes
 		successfully veers left past pillars for 17/20 episodes when y+-1.5 start
 			failed (3) for all y+1.5 start
-	after self.set_z = 0.97
+--- after self.set_z = 0.97 (previously 0.0) ---
+--- after self.forward_vel = 0.15 (previously 0.20) ---
 	imit_20_net_1243_100
 		final train values:
 			loss: 0.0874 - acc: 0.8896 - val_loss: 0.2595 - val_acc: 0.7013
@@ -91,7 +94,8 @@ human behavior
 train network
 	python neural.py
 		run_id = run_id from config_main.ini
-		n_items = n_episodes
+		var_id = variation of run_id
+		n_episodes = val from config_main.init
 		output stored in ../neural_models folder
 			neural_name provided in save_neural() inside train_model()
 test network
@@ -102,5 +106,6 @@ test network
 		class ImitationAgen()
 			__init__()
 				self.model = load_neural(name='neural_name', ...)
+				self.lstm = True/False if model contains lstm modules
 	python main.py
 

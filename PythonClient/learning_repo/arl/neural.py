@@ -143,9 +143,11 @@ class ImitationNetwork(object):
 
         if dqn:
             self.create_dqn()
+            self.lstm = False
         else:
             # self.create_model()
-            self.create_model()
+            self.create_model_conv_lstm_dm()
+            self.lstm = True
 
     def create_dqn(self):
         """
@@ -222,6 +224,72 @@ class ImitationNetwork(object):
         model.compile(loss='mse',
                       optimizer='adam',
                       metrics=['accuracy'])
+
+        # save to class
+        print(model.summary())
+        plot_model(model, to_file='model.png')
+        self.model = model
+
+    def create_model_conv_lstm_dm(self):
+        """
+        Create neural network model.
+        """
+        self.name = 'deepmind'
+
+        sequence_length = None
+        model = Sequential()
+
+        # 1
+        # model.add(TimeDistributed(Conv2D(16, (8, 8), strides=4), input_shape=(sequence_length, self.height, self.width, 1)))
+        model.add(TimeDistributed(Conv2D(16, (4, 4), strides=2), input_shape=(sequence_length, self.height, self.width, 1)))
+        model.add(TimeDistributed(Activation('relu')))
+        # model.add(TimeDistributed(MaxPooling2D(pool_size=(2, 2))))
+        print(model.layers[-1].output_shape)
+        
+        # 2
+        model.add(TimeDistributed(Conv2D(32, (2, 2), strides=2)))
+        model.add(TimeDistributed(Activation('relu')))
+        model.add(TimeDistributed(BatchNormalization()))
+        # model.add(MaxPooling2D(pool_size=(2, 2)))
+        print(model.layers[-1].output_shape)
+
+        # 4
+        # model.add(Conv2D(64, (3, 3)))
+        # model.add(Activation('relu'))
+        # model.add(BatchNormalization())
+        # model.add(MaxPooling2D(pool_size=(2, 2)))
+
+        # model.add(Conv2D(128, (3, 3)))
+        # model.add(Activation('relu'))
+        # model.add(BatchNormalization())
+        # model.add(MaxPooling2D(pool_size=(2, 2)))
+        # print(model.layers[-1].output_shape)
+
+        # the model so far outputs 3D feature maps (height, width, features)
+        # 3
+        model.add(TimeDistributed(Flatten()))  # this converts our 3D feature maps to 1D feature vectors
+        # print(model.layers[-1].output_shape)
+        model.add(TimeDistributed(Dense(128)))
+        # print(model.layers[-1].output_shape)
+        # model.add(Activation('relu'))
+        # model.add(TimeDistributed(Dropout(.2)))
+
+        # 6
+        model.add(LSTM(128,
+                       batch_input_shape=(self.batch_size, self.n_timesteps, self.height*self.width, 1),
+                       return_sequences=True,
+                       stateful=False))
+        # print(model.layers[-1].output_shape)
+
+        # 5
+        model.add(TimeDistributed(Dropout(0.25)))
+        model.add(TimeDistributed(Dense(self.n_act)))
+        model.add(TimeDistributed(Activation('elu')))
+
+        model.compile(loss='mse',
+                      optimizer='adam',
+                      metrics=['accuracy'],
+                      sample_weight_mode='temporal')
 
         # save to class
         print(model.summary())
@@ -311,8 +379,9 @@ class ImitationNetwork(object):
         plot_model(model, to_file='model_conv_lstm2.png')
         self.model = model
 
-    def create_model_conv_lstm2(self):
+    def create_model_conv_lstm2_(self):
         """
+        model above but without model.add(BatchNormalization()) - KL
         Create neural network model.
         TESTING: Convolutional + LSTM Layers (many to one)
         Ref.: https://github.com/fchollet/keras/issues/5338
@@ -412,13 +481,13 @@ class ImitationNetwork(object):
         print 'y features: ' + str(y.shape[1])
 
         # reshape to sequence, if lstm
-        if self.name == 'conv_lstm':
+        if self.lstm:
             x, y = self.reshape_lstm(x,y)
 
             # reshape arrays to 2d images
             # samples, height, width, channels
             new_samples = samples-(self.n_timesteps+1)
-            print('New sample size: ', new_samples)
+            print 'New sample size: ' + str(new_samples)
 
             x = x.reshape((new_samples, self.n_timesteps, self.height, self.width, 1))
             y = y.reshape((new_samples, self.n_timesteps, n_act))
@@ -449,14 +518,14 @@ class ImitationNetwork(object):
 
         # train
         hist_train = model.fit(x, y, batch_size=self.batch_size,
-                         epochs=200,
+                         epochs=50,
                          shuffle=False,
                          validation_split=.2,
                          verbose=2)#,
                         #  callbacks=[early_stop])
 
         # plot train history
-        save_neural(self.model, run_id + '_net_1243')
+        save_neural(self.model, run_id + var_id)
         self.plot_train_hist(run_id, hist_train)
 
 
@@ -468,7 +537,7 @@ class ImitationNetwork(object):
         samples = img_input.shape[0]
 
         # reshape input to fit on keras
-        if self.name == 'conv_lstm':
+        if self.lstm:
             print(img_input[0,:,:,:].shape)
             img_input = img_input[0,:,:,:].reshape((1, self.n_timesteps, self.height, self.width, 1))
         else:
@@ -522,11 +591,14 @@ class ImitationNetwork(object):
             plt.plot(steps[hist_init:], hist_list[hist_init:])
             plt.xlim([hist_init, len(hist_list)])
 
+            # fig = plt.figure()
+            plt.savefig('../neural_models/'+str(item)+'_'+str(run_id)+str(var_id) + '.png')
             plt.show()
 
 if __name__ == '__main__':
     # test training
     run_id = 'imit_20'
+    var_id = '_dm_net_12365_50'
     n_episodes = 20
     n_act = 1
 

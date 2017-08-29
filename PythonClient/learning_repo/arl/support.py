@@ -73,7 +73,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
         # env.test_pos()
 
         # create object to store state-action pairs and rew-act pairs
-        state_act = np.zeros((n_steps,observation.flatten().shape[0]+1)) # +1 for action
+        state_act = np.zeros((n_steps,observation.flatten().shape[0]+1)) # +1 for action, +1 for t
         rew_act = np.zeros((n_steps,3)) # step, rew, act
         recording_already = False # flag to help identifying human intervention
         start_interv = 0
@@ -91,7 +91,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
             start_step_time = time.time()
             # select action based on current observation
             action = agent.act(observation)
-            # print action
+            print action
 
             # record past observation
             past_observation = np.copy(observation)
@@ -962,6 +962,8 @@ class CustomAirSim(AirSimClient, gym.Env):
     def tsh_distance(self, tsh_val, img):
         """
         Threshold pixel values on image. Set to zero if less than tsh_val.
+        img vals < 100 indicate 20+ meters depth 
+            (figures->validate_depth->pixel_distance)
         """
         low_val_idx = img < tsh_val
         img[low_val_idx] = 0
@@ -1403,6 +1405,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         res = self.preprocess(img)
 
         # compute reward
+        # crop res to ignore some of ground plane immediately in front
         reward = self.compute_reward(res)
 
         # check if done
