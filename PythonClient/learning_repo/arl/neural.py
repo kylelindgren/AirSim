@@ -19,7 +19,7 @@ import tensorflow as tf
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.optimizers import RMSprop, SGD, Adam
-from keras.layers import Conv2D, MaxPooling2D, LSTM
+from keras.layers import Conv2D, MaxPooling2D, LSTM, advanced_activations
 from keras.layers.wrappers import TimeDistributed
 from keras.layers.normalization import BatchNormalization
 from keras.models import model_from_json
@@ -130,8 +130,10 @@ class ImitationNetwork(object):
     """
     def __init__(self, n_act=1, dqn=False):
         # depth data resolution
-        self.width = 64
-        self.height = 36
+        # self.width = 64
+        # self.height = 36
+        self.width = 32
+        self.height = 9
 
         # for lstm only
         self.n_timesteps = 1
@@ -145,9 +147,10 @@ class ImitationNetwork(object):
             self.create_dqn()
             self.lstm = False
         else:
-            # self.create_model()
-            self.create_model_conv_lstm_dm()
-            self.lstm = True
+            self.create_model()
+            self.lstm = False
+            # self.create_model_conv_lstm_dm()
+            # self.lstm = True
 
     def create_dqn(self):
         """
@@ -186,38 +189,80 @@ class ImitationNetwork(object):
     def create_model(self):
         """
         Create neural network model.
+        'The general use case is to use batch norm between the linear and non-linear 
+            layers in your network'
         """
         self.name = 'conv'
 
         model = Sequential()
 
         # 1
-        model.add(Conv2D(32, (3, 3), input_shape=(self.height, self.width, 1)))
+        model.add(Conv2D(16, (2, 2), input_shape=(self.height, self.width, 1)))
         model.add(Activation('relu'))
-        model.add(MaxPooling2D(pool_size=(2, 2)))
-
-        # 2
-        model.add(Conv2D(32, (3, 3), input_shape=(self.height, self.width, 1)))
-        model.add(Activation('relu'))
-        model.add(MaxPooling2D(pool_size=(2, 2)))
-
-        # 4
-        model.add(Conv2D(64, (3, 3)))
-        model.add(Activation('relu'))
-        model.add(BatchNormalization())
-        model.add(MaxPooling2D(pool_size=(2, 2)))
-
-        # model.add(Conv2D(128, (3, 3)))
-        # model.add(Activation('relu'))
         # model.add(BatchNormalization())
         # model.add(MaxPooling2D(pool_size=(2, 2)))
+
+        # # 2
+        # model.add(Conv2D(32, (2, 2)))
+        # model.add(Activation('relu'))
+        # model.add(BatchNormalization())
+        # model.add(Dropout(0.25))
+
+        # # 4
+        # model.add(Conv2D(16, (2, 2)))
+        # model.add(Activation('relu'))
+
+
+        # model.add(Conv2D(128, (2, 2)))
+        # model.add(Activation('relu'))
+
+        # model.add(Conv2D(64, (2, 2)))
+        # model.add(Activation('relu'))
+        # model.add(BatchNormalization())
+        # model.add(Dropout(0.25))
+
+        # # # 5
+        # model.add(Conv2D(32, (3, 3)))
+        # model.add(Activation('relu'))
+        # model.add(BatchNormalization())
 
         # the model so far outputs 3D feature maps (height, width, features)
         # 3
         model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
-        model.add(Dense(32))
+        model.add(Dense(128))
         model.add(Activation('relu'))
-        model.add(Dropout(0.5))
+        # model.add(Dropout(0.25))
+        model.add(Dense(self.n_act))
+        # model.add(BatchNormalization())
+        model.add(Activation('linear'))
+        # model.add(Activation(advanced_activations.ThresholdedReLU(theta=0.1)))
+
+        model.compile(loss='mse',
+                      optimizer='adam',
+                      metrics=['accuracy'])
+
+        # save to class
+        print(model.summary())
+        plot_model(model, to_file='model.png')
+        self.model = model
+
+    def create_model_work(self):
+        """
+        Working net with offset = -0.00017472
+        fit vals => loss: 0.1577 - acc: 0.4755 - val_loss: 0.2916 - val_acc: 0.6910
+        """
+        self.name = 'conv'
+
+        model = Sequential()
+
+        # 1
+        model.add(Conv2D(16, (2, 2), input_shape=(self.height, self.width, 1)))
+        model.add(Activation('relu'))
+
+        # 3
+        model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
+        model.add(Dense(128))
+        model.add(Activation('relu'))
         model.add(Dense(self.n_act))
         model.add(Activation('linear'))
 
@@ -229,6 +274,7 @@ class ImitationNetwork(object):
         print(model.summary())
         plot_model(model, to_file='model.png')
         self.model = model
+
 
     def create_model_conv_lstm_dm(self):
         """
@@ -518,7 +564,7 @@ class ImitationNetwork(object):
 
         # train
         hist_train = model.fit(x, y, batch_size=self.batch_size,
-                         epochs=50,
+                         epochs=n_epochs,
                          shuffle=False,
                          validation_split=.2,
                          verbose=2)#,
@@ -543,8 +589,8 @@ class ImitationNetwork(object):
         else:
             img_input = img_input.reshape((samples, self.height, self.width, 1))
         act = self.model.predict(img_input, batch_size=1, verbose=2)
-        print 'Action shape: ' + str(act.shape)
-        print 'Last action: ' + str(act[:])
+        # print 'Action shape: ' + str(act.shape)
+        print 'Last action: ' + str(act[-1, -1])
 
         return act
 
@@ -597,13 +643,14 @@ class ImitationNetwork(object):
 
 if __name__ == '__main__':
     # test training
-    run_id = 'imit_20'
-    var_id = '_dm_net_12365_50'
-    n_episodes = 20
     n_act = 1
+    n_episodes = 40
+    n_epochs = 500
+    run_id = 'imit_40_gaus'
+    var_id = '_cnn_net_13_linear_' + str(n_epochs)
 
     net = ImitationNetwork(n_act=n_act)
     net.train_model(run_id, n_episodes, n_act)
 
     # test predicting
-    print(net.model_predict(net.x))
+    net.model_predict(net.x) 

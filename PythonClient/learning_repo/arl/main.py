@@ -55,6 +55,7 @@ def main(inf_mode=False, use_gui=False):
         agent = HumanAgent(drone, n_episodes)  # changed to use kb - KL
         # agent = HumanAgentXBoxMulti(drone, n_episodes)
     elif select_agent == 'imitation':
+        drone.ran_start = True  # random start for testing
         agent = ImitationAgent(drone, n_episodes)
     elif select_agent == 'interv':
         agent = InterventionAgentMulti(drone, n_episodes)

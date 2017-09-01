@@ -400,14 +400,18 @@ class ImitationAgent(object):
         self.n_act = 1
 
         # depth data resolution
-        self.width = 64
-        self.height = 36
+        # self.width = 64
+        # self.height = 36
+        # cropped image
+        self.width = 32
+        self.height = 9
 
         # load network
         print('Loading neural network...')
         self.normalized = True
-        self.model = load_neural(name='imit_20_dm_net_12365_50', loss='mse', opt='adam')
-        self.lstm = True
+        # imit_40_gaus_cnn_net_123_100 works (offset 0.08689197)
+        self.model = load_neural(name='imit_40_gaus_cnn_net_13_linear_50_work', loss='mse', opt='adam')
+        self.lstm = False
         # lrate = .01
         # epochs = 300
         # decay = lrate/epochs
@@ -430,15 +434,14 @@ class ImitationAgent(object):
                 img_input = 255*img_input.reshape((samples, self.height, self.width, 1))
             act = self.model.predict(img_input.reshape((samples-2, 1, self.height, self.width, 1)), batch_size=1, verbose=2)
             act = act[0]
-            # print act
         else:
             if self.normalized:
                 img_input = img_input.reshape((samples, self.height, self.width, 1))
             else:
                 img_input = 255*img_input.reshape((samples, self.height, self.width, 1))
             act = self.model.predict(img_input, batch_size=1, verbose=2)
-            # print act
-
+            
+        # print act
         # # random action
         # act = [np.random.randint(-1, 1, 1)]
 

@@ -20,6 +20,8 @@ from gym import spaces
 import pygame
 
 import matplotlib.pyplot as plt
+from scipy.ndimage.filters import gaussian_filter
+from scipy import signal
 
 from PythonClient import *
 
@@ -85,13 +87,13 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
 
         start_epi_time = time.time()
         for t in range(n_steps):
-            if t % 100 == 0:
+            if t % 50 == 0:
                 print 'Step ' + str(t)
 
             start_step_time = time.time()
             # select action based on current observation
             action = agent.act(observation)
-            print action
+            # print action
 
             # record past observation
             past_observation = np.copy(observation)
@@ -1172,7 +1174,7 @@ class CustomAirSim(AirSimClient, gym.Env):
         """
         # normalize pixels
         # all white = 0, all black = 1
-        reward = 1 - np.sum(img) / (36*64)
+        reward = 1 - np.sum(img) / (img.shape[0] * img.shape[1])  # (36*64)
         return reward
 
     def reset(self):
@@ -1273,8 +1275,8 @@ class GroundAirSim(CustomAirSim, gym.Env):
         super(GroundAirSim, self).__init__(n_steps, inf_mode, use_gui)
         self.inf_mode = inf_mode
 
-        self.forward_vel = 0.15
-        self.vy_scale = 2  
+        self.forward_vel = 1.5
+        self.turn_scale = 1  
         self.prev_xy_key = 9
         self.prev_th_key = 9
 
@@ -1284,6 +1286,10 @@ class GroundAirSim(CustomAirSim, gym.Env):
         # 1.19 = collision, 1.18 no collision
         self.set_z = 0.97  # ground vehicle height # 0.22  # ~9 inches
 
+        self.tsh_val = 249  # img vals < 100 ~ 20+m, 180 ~ 5m, 220 ~ 2.5m
+        self.crop_depth_h_frac = 0.25
+        self.crop_depth_w_frac = 0.25
+
         # computer vision params
         pos = self.getPosition()
         orq = self.getOrientation()
@@ -1292,7 +1298,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         self.pos_new, self.orq_new = (pos, orq)
 
         # action limits
-        self.map_length = 20
+        self.map_length = 30
 
     # CUSTOM ARL GROUND VEHICLE COMMANDS
     #####################
@@ -1308,9 +1314,6 @@ class GroundAirSim(CustomAirSim, gym.Env):
         orq = self.getOrientation()
         ore = self.toEulerianAngle(orq)
 
-        scale_xy = 3
-        scale_th = 1
-
         # if key == 0:
         #     self.prev_xy_key = self.prev_th_key = 0
         # else:            
@@ -1324,17 +1327,38 @@ class GroundAirSim(CustomAirSim, gym.Env):
         # if abs(key) > 1:
         #     key = np.clip(key, -1, 1)
         #     print "clipped key: " + str(key)
-        ore = [ore[0], ore[1], ore[2] + key*scale_th*duration]
+        ore = [ore[0], ore[1], ore[2] + key*self.turn_scale*duration]
         orq = self.toQuaternion(ore)
 
         # constant velocity forward
-        pos[0] = pos[0] + math.cos(ore[2])*scale_xy*duration
-        pos[1] = pos[1] + math.sin(ore[2])*scale_xy*duration
+        pos[0] = pos[0] + math.cos(ore[2])*self.forward_vel*duration
+        pos[1] = pos[1] + math.sin(ore[2])*self.forward_vel*duration
 
         self.simSetPose(pos, orq)
 
         return duration
 
+    def drone_bank(self, key):
+        """
+        Move laterally
+        """
+        # define move parameters
+        duration = self.dt
+
+        pos = self.getPosition()
+        orq = self.getOrientation()
+
+        # key = 0.0 if abs(key) < 0.12 else key
+
+        # constant velocity forward (x direction)
+        pos[0] = pos[0] + self.forward_vel*duration
+        pos[1] = pos[1] + (key+0)*self.turn_scale*duration  
+        # 400->+2.6754899 100->-0.33134952 200->+0.38967273 500->+0.11149321
+        # print key
+
+        self.simSetPose(pos, orq)
+
+        return duration
 
     def drone_brake(self):
         """
@@ -1350,7 +1374,12 @@ class GroundAirSim(CustomAirSim, gym.Env):
         """
         # move high above obstacles, then down to home position
         pos = self.getPosition()
-        self.simSetPose([pos[0], pos[1], -50.0], self.orq0)
+        orq = self.getOrientation()
+        self.simSetPose([pos[0], pos[1], -50.0], orq)
+        self.simSetPose([pos[0] - 1, pos[1], -50.0], orq)
+        self.simSetPose([pos[0] + 1, pos[1], -50.0], orq)
+        self.simSetPose([pos[0], pos[1] - 1, -50.0], orq)
+        self.simSetPose([pos[0], pos[1] + 1, -50.0], orq)
         self.simSetPose([self.pos0[0], self.pos0[1], -50.0], self.orq0)
         if self.ran_start:
             self.simSetPose([self.pos0[0], self.pos0[1] + 1.5*float(np.random.randint(-1, 2, 1)), self.pos0[2]], self.orq0)
@@ -1397,7 +1426,8 @@ class GroundAirSim(CustomAirSim, gym.Env):
         Return reward and if check if episode is done.
         """
         # take action
-        wait_time = self.drone_turn(float(action))
+        # wait_time = self.drone_turn(float(action))
+        wait_time = self.drone_bank(float(action))
         time.sleep(wait_time)
 
         # get next state
@@ -1407,6 +1437,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         # compute reward
         # crop res to ignore some of ground plane immediately in front
         reward = self.compute_reward(res)
+        # print reward
 
         # check if done
         current_pos = self.getPosition()
@@ -1437,7 +1468,6 @@ class GroundAirSim(CustomAirSim, gym.Env):
         # map action (example: convert from 0,1,2 to -1,0,1)
         # action = action - 1  # from CustomAirSim class - KL
 
-        # wait_time = self.drone_turn(float(action))
         wait_time = self.drone_turn(float(action))
         time.sleep(wait_time)
 
@@ -1457,6 +1487,29 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         return res, reward, done, {}
 
+    def compute_reward(self, img):
+        """
+        Compute reward based on image received.
+        """
+        # normalize pixels
+        # all white = 0, all black = 1
+        blurred = np.ones(img.shape) - img
+        gaus_filter = signal.gaussian(blurred.shape[1], std=6)
+        # print gaus_filter
+        for i in range(blurred.shape[0]):
+            blurred[i, :] = 2*np.multiply(blurred[i, :], gaus_filter)
+        cv2.imshow('gaussian blurred', blurred)
+        # cv2.imshow('orig', img)
+        cv2.waitKey(1)
+        
+        # reward = 1 - np.sum(img) / (img.shape[0] * img.shape[1])
+        reward = np.sum(blurred) / (blurred.shape[0] * blurred.shape[1])
+        # print "gaussed"
+        # print blurred
+        # print np.sum(blurred[1, :])
+        # print reward
+
+        return reward
 
     def reset(self):
         """
@@ -1469,6 +1522,42 @@ class GroundAirSim(CustomAirSim, gym.Env):
         res = self.preprocess(img)
 
         return res
+
+    def preprocess(self, img):
+        """
+        Resize image. Converts and down-samples the input image.
+        """
+        # resize img
+        res = cv2.resize(img, None, fx=self.reduc_factor, fy=self.reduc_factor, interpolation=cv2.INTER_AREA)
+        # cv2.imshow('processed', res)
+        # cv2.waitKey(1)
+        # normalize image
+
+        res = self.tsh_distance(self.tsh_val, res)
+        
+        height = res.shape[0]
+        width = res.shape[1]
+        res = res[int(self.crop_depth_h_frac*height):int(height - 2*self.crop_depth_h_frac*height), 
+        int(self.crop_depth_w_frac*width):int(width - self.crop_depth_w_frac*width)] / 255.0
+        # :] / 255.0
+        # int(self.crop_depth_frac*width):int(width - self.crop_depth_frac*width)] / 255.0  # change 255 -> 255.0 for float calc - KL (Py2.7)
+        
+        # cv2.imshow('processed, normalized', res)
+        # cv2.waitKey(1)
+        # print "res shape: " + str(res.shape)  # (9, 32)
+
+        return res
+
+    def tsh_distance(self, tsh_val, img):
+        """
+        Threshold pixel values on image. Set to zero if less than tsh_val.
+        img vals < 100 indicate 20+ meters depth 
+            (figures->validate_depth->pixel_distance)
+        """
+        low_val_idx = img < tsh_val
+        img[low_val_idx] = 0
+
+        return img
 
     @property
     def action_space(self):
