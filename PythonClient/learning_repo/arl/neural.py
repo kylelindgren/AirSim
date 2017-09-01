@@ -647,7 +647,7 @@ if __name__ == '__main__':
     n_episodes = 40
     n_epochs = 500
     run_id = 'imit_40_gaus'
-    var_id = '_cnn_net_13_linear_' + str(n_epochs)
+    var_id = '_cnn_net_13_linear__' + str(n_epochs)
 
     net = ImitationNetwork(n_act=n_act)
     net.train_model(run_id, n_episodes, n_act)

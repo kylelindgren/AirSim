@@ -1276,19 +1276,22 @@ class GroundAirSim(CustomAirSim, gym.Env):
         self.inf_mode = inf_mode
 
         self.forward_vel = 1.5
-        self.turn_scale = 1  
+        self.turn_scale = 1.5 #1 for imit_40_gaus_cnn_net_13_linear_50_work
         self.prev_xy_key = 9
         self.prev_th_key = 9
 
-        self.ran_start = True
+        self.ran_start = False
+        self.cycle_start = True
+        self.n_ep = 0
 
         # parameters for turn maneuver
         # 1.19 = collision, 1.18 no collision
         self.set_z = 0.97  # ground vehicle height # 0.22  # ~9 inches
 
-        self.tsh_val = 249  # img vals < 100 ~ 20+m, 180 ~ 5m, 220 ~ 2.5m
+        self.tsh_val = 252  # img vals < 100 ~ 20+m, 249 for _bank
         self.crop_depth_h_frac = 0.25
-        self.crop_depth_w_frac = 0.25
+        self.crop_depth_w_frac = 0.25  #0.25 for imit_40_gaus_cnn_net_13_linear_50_work
+        self.gaus_sig = 6  #6 for imit_40_gaus_cnn_net_13_linear_50_work
 
         # computer vision params
         pos = self.getPosition()
@@ -1340,7 +1343,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
     def drone_bank(self, key):
         """
-        Move laterally
+        Move diagonally
         """
         # define move parameters
         duration = self.dt
@@ -1356,6 +1359,26 @@ class GroundAirSim(CustomAirSim, gym.Env):
         pos[1] = pos[1] + (key+0)*self.turn_scale*duration  
         # 400->+2.6754899 100->-0.33134952 200->+0.38967273 500->+0.11149321
         # print key
+
+        self.simSetPose(pos, orq)
+
+        return duration
+
+    def drone_side_step(self, key):
+        """
+        Move laterally
+        """
+        # define move parameters
+        duration = self.dt
+
+        pos = self.getPosition()
+        orq = self.getOrientation()
+
+        # print key
+        if abs(key) < 0.12:
+            pos[0] = pos[0] + self.forward_vel*duration
+        else:
+            pos[1] = pos[1] + key*self.turn_scale*duration
 
         self.simSetPose(pos, orq)
 
@@ -1384,10 +1407,13 @@ class GroundAirSim(CustomAirSim, gym.Env):
         self.simSetPose([self.pos0[0], self.pos0[1], -50.0], self.orq0)
         if self.ran_start:
             self.simSetPose([self.pos0[0], self.pos0[1] + 1.5*float(np.random.randint(-1, 2, 1)), self.pos0[2]], self.orq0)
+        elif self.cycle_start:
+            self.simSetPose([self.pos0[0], self.pos0[1] + 1.5*float((self.n_ep % 3) - 1), self.pos0[2]], self.orq0)
+            self.n_ep = self.n_ep + 1
         else:
             self.simSetPose(self.pos0, self.orq0)
 
-        time.sleep(2)
+        time.sleep(1)
 
     # def gohome_turtle(self):
     #     """
@@ -1427,8 +1453,9 @@ class GroundAirSim(CustomAirSim, gym.Env):
         Return reward and if check if episode is done.
         """
         # take action
-        # wait_time = self.drone_turn(float(action))
-        wait_time = self.drone_bank(float(action))
+        wait_time = self.drone_turn(float(action))
+        # wait_time = self.drone_bank(float(action))
+        # wait_time = self.drone_side_step(float(action))
         time.sleep(wait_time)
 
         # get next state
@@ -1495,10 +1522,10 @@ class GroundAirSim(CustomAirSim, gym.Env):
         # normalize pixels
         # all white = 0, all black = 1
         blurred = np.ones(img.shape) - img
-        gaus_filter = signal.gaussian(blurred.shape[1], std=6)
+        gaus_filter = signal.gaussian(blurred.shape[1], std=self.gaus_sig)
         # print gaus_filter
         for i in range(blurred.shape[0]):
-            blurred[i, :] = 2*np.multiply(blurred[i, :], gaus_filter)
+            blurred[i, :] = 1*np.multiply(blurred[i, :], gaus_filter)
         cv2.imshow('gaussian blurred', blurred)
         # cv2.imshow('orig', img)
         cv2.waitKey(1)
