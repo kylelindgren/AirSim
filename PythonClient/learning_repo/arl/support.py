@@ -1348,6 +1348,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         pos = self.getPosition()
         orq = self.getOrientation()
 
+        # print key
         # key = 0.0 if abs(key) < 0.12 else key
 
         # constant velocity forward (x direction)
