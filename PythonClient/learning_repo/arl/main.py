@@ -54,8 +54,10 @@ def main(inf_mode=False, use_gui=False):
     if select_agent == 'human':
         agent = HumanAgent(drone, n_episodes)  # changed to use kb - KL
         # agent = HumanAgentXBoxMulti(drone, n_episodes)
+        drone.cycle_start = True
     elif select_agent == 'imitation':
-        drone.cycle_start = True  # random start for testing
+        # drone.cycle_start = True  # cycle through 3 start locations
+        drone.ran_start = True  # random start
         agent = ImitationAgent(drone, n_episodes)
     elif select_agent == 'interv':
         agent = InterventionAgentMulti(drone, n_episodes)

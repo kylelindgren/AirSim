@@ -25,6 +25,8 @@ from keras.layers.normalization import BatchNormalization
 from keras.models import model_from_json
 from keras.utils import plot_model
 from keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.contrib.keras.python.keras import backend as K
+from keras.utils.generic_utils import get_custom_objects
 
 import tensorflow as tf
 
@@ -69,6 +71,11 @@ def save_neural(model, name):
     model.save_weights(folder_loc + name + ".h5")
 
     print "Saved model to disk. Name = " + name
+
+
+def ThresholdedLinear(inputs, theta=0.1):
+    return inputs * K.cast(abs(inputs) > theta, K.floatx())   
+
 
 class DeepNeuralNet(object):
     """
@@ -152,6 +159,7 @@ class ImitationNetwork(object):
             # self.create_model_conv_lstm_dm()
             # self.lstm = True
 
+
     def create_dqn(self):
         """
         Create neural network model for DQN.
@@ -192,7 +200,9 @@ class ImitationNetwork(object):
         'The general use case is to use batch norm between the linear and non-linear 
             layers in your network'
         """
-        self.name = 'conv'
+        self.name = 'conv'        
+
+        get_custom_objects().update({'ThresholdedLinear': Activation(ThresholdedLinear)})
 
         model = Sequential()
 
@@ -203,25 +213,25 @@ class ImitationNetwork(object):
         # model.add(MaxPooling2D(pool_size=(2, 2)))
 
         # # 2
-        # model.add(Conv2D(32, (2, 2)))
+        # model.add(Conv2D(64, (2, 2)))
         # model.add(Activation('relu'))
-        # model.add(BatchNormalization())
-        # model.add(Dropout(0.25))
+        # # model.add(BatchNormalization())
+        # # model.add(Dropout(0.25))
 
         # # 4
-        # model.add(Conv2D(16, (2, 2)))
+        # model.add(Conv2D(128, (2, 2)))
         # model.add(Activation('relu'))
 
-
-        # model.add(Conv2D(128, (2, 2)))
+        # # 6
+        # model.add(Conv2D(256, (2, 2)))
         # model.add(Activation('relu'))
 
         # model.add(Conv2D(64, (2, 2)))
         # model.add(Activation('relu'))
         # model.add(BatchNormalization())
-        # model.add(Dropout(0.25))
+        # model.add(Dropout(0.5))
 
-        # # # 5
+        # # 5
         # model.add(Conv2D(32, (3, 3)))
         # model.add(Activation('relu'))
         # model.add(BatchNormalization())
@@ -234,7 +244,9 @@ class ImitationNetwork(object):
         # model.add(Dropout(0.25))
         model.add(Dense(self.n_act))
         # model.add(BatchNormalization())
-        model.add(Activation('linear'))
+        # model.add(Activation('linear'))
+        # model.add(Activation(advanced_activations.ThresholdedLinear(theta=0.1)))
+        model.add(Activation('ThresholdedLinear'))
         # model.add(Activation(advanced_activations.ThresholdedReLU(theta=0.1)))
 
         model.compile(loss='mse',
@@ -565,7 +577,7 @@ class ImitationNetwork(object):
         # train
         hist_train = model.fit(x, y, batch_size=self.batch_size,
                          epochs=n_epochs,
-                         shuffle=False,
+                         shuffle=True,
                          validation_split=.2,
                          verbose=2)#,
                         #  callbacks=[early_stop])
@@ -644,10 +656,10 @@ class ImitationNetwork(object):
 if __name__ == '__main__':
     # test training
     n_act = 1
-    n_episodes = 40
-    n_epochs = 500
-    run_id = 'imit_40_gaus'
-    var_id = '_cnn_net_13_linear__' + str(n_epochs)
+    n_episodes = 30
+    n_epochs = 50
+    run_id = 'imit_30_turn'
+    var_id = '_128_16cnn_net_13_linear_th_' + str(n_epochs)
 
     net = ImitationNetwork(n_act=n_act)
     net.train_model(run_id, n_episodes, n_act)

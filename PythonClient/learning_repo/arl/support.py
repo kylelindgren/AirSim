@@ -155,7 +155,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
                 break
 
             # check if goal or if reached any other simulation limit
-            if done:
+            if t == 399 or done:  # done every episode fixed # steps - KL
                 total_done = total_done + 1.0
                 print("Episode finished after {} steps.".format(t + 1))
                 break
@@ -188,7 +188,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
 
     # REPORT
     print('\nGoal achieved in %i out of %i tries.' % (total_done, n_episodes))
-    print('Success rate = ', total_done / n_episodes)
+    print 'Success rate = ' + str(total_done / n_episodes)
 
     # save and plot reward results
     np.savetxt(data_folder+run_id+'_rew.csv', agent.history, delimiter=',')
@@ -1275,13 +1275,14 @@ class GroundAirSim(CustomAirSim, gym.Env):
         super(GroundAirSim, self).__init__(n_steps, inf_mode, use_gui)
         self.inf_mode = inf_mode
 
-        self.forward_vel = 1.5
-        self.turn_scale = 1.5 #1 for imit_40_gaus_cnn_net_13_linear_50_work
+        self.ff = 1  # =1 for training
+        self.forward_vel = 1.5*self.ff
+        self.turn_scale = 1.5*self.ff #1 for imit_40_gaus_cnn_net_13_linear_50_work
         self.prev_xy_key = 9
         self.prev_th_key = 9
 
         self.ran_start = False
-        self.cycle_start = True
+        self.cycle_start = False
         self.n_ep = 0
 
         # parameters for turn maneuver
@@ -1301,7 +1302,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         self.pos_new, self.orq_new = (pos, orq)
 
         # action limits
-        self.map_length = 30
+        self.map_length = 40
 
     # CUSTOM ARL GROUND VEHICLE COMMANDS
     #####################
@@ -1327,9 +1328,12 @@ class GroundAirSim(CustomAirSim, gym.Env):
         #         ore = [ore[0], ore[1], ore[2] + scale_th*duration]
         #         orq = self.toQuaternion(ore)
 
-        # if abs(key) > 1:
-        #     key = np.clip(key, -1, 1)
-        #     print "clipped key: " + str(key)
+        # print key
+        # if abs(key) < 0.135:
+        if abs(key) < 0.023:
+            key = 0
+            # key = np.clip(key, -1, 1)
+            # print "clipped key: " + str(key)
         ore = [ore[0], ore[1], ore[2] + key*self.turn_scale*duration]
         orq = self.toQuaternion(ore)
 
@@ -1406,9 +1410,11 @@ class GroundAirSim(CustomAirSim, gym.Env):
         self.simSetPose([pos[0], pos[1] + 1, -50.0], orq)
         self.simSetPose([self.pos0[0], self.pos0[1], -50.0], self.orq0)
         if self.ran_start:
-            self.simSetPose([self.pos0[0], self.pos0[1] + 1.5*float(np.random.randint(-1, 2, 1)), self.pos0[2]], self.orq0)
+            self.simSetPose([self.pos0[0], self.pos0[1] + 
+                3.0*float(np.random.random_sample())-1.5, self.pos0[2]], self.orq0)
         elif self.cycle_start:
-            self.simSetPose([self.pos0[0], self.pos0[1] + 1.5*float((self.n_ep % 3) - 1), self.pos0[2]], self.orq0)
+            self.simSetPose([self.pos0[0], self.pos0[1] + 
+                1.5*float((self.n_ep % 3) - 1), self.pos0[2]], self.orq0)
             self.n_ep = self.n_ep + 1
         else:
             self.simSetPose(self.pos0, self.orq0)
@@ -1525,7 +1531,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         gaus_filter = signal.gaussian(blurred.shape[1], std=self.gaus_sig)
         # print gaus_filter
         for i in range(blurred.shape[0]):
-            blurred[i, :] = 1*np.multiply(blurred[i, :], gaus_filter)
+            blurred[i, :] = 2*np.multiply(blurred[i, :], gaus_filter)
         cv2.imshow('gaussian blurred', blurred)
         # cv2.imshow('orig', img)
         cv2.waitKey(1)

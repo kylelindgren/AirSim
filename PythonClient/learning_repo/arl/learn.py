@@ -410,7 +410,20 @@ class ImitationAgent(object):
         print('Loading neural network...')
         self.normalized = True
         # imit_40_gaus_cnn_net_123_100 works (offset 0.08689197)
-        self.model = load_neural(name='imit_40_gaus_cnn_net_13_linear_50_work', loss='mse', opt='adam')
+        # imit_30_turn_cnn_net_12463_linear_500
+        # imit_30_turn_64cnn_net_13_linear_100 off 0.025752
+        # imit_30_turn_128_8cnn_net_13_linear_100 off 0.0224069 passes all 3
+            # ran 30 times with random start -> 50% success rate
+        # imit_30_turn_128cnn_net_13_linear_100 off 0.0171402 (cnn layer 16) passes all 3
+        # imit_30_turn_128_16cnn_net_13_linear_50 off -0.019798 fails path 1
+        # imit_30_turn_128_16cnn_net_13_linear_500 off -0.027919 passes all 3
+        # imit_30_turn_128_32cnn_net_13_linear_100 off 0.0137281 passes all 3
+        # imit_30_turn_128_64cnn_net_13_linear_100 off 0.00808833 fails path 1
+        # imit_30_turn_128_64cnn_net_13_linear_500 off 0.0159917
+        # imit_30_turn_128_128cnn_net_13_linear_100 off 0.0151486
+        # imit_30_turn_256cnn_net_13_linear_100 off 0.0201453
+        # imit_30_turn_512cnn_net_13_linear_100 off 0.0217767
+        self.model = load_neural(name='imit_30_turn_128_8cnn_net_13_linear_100', loss='mse', opt='adam')
         self.lstm = False
         # lrate = .01
         # epochs = 300
