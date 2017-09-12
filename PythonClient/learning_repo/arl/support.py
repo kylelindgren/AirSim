@@ -1275,9 +1275,9 @@ class GroundAirSim(CustomAirSim, gym.Env):
         super(GroundAirSim, self).__init__(n_steps, inf_mode, use_gui)
         self.inf_mode = inf_mode
 
-        self.ff = 1  # =1 for training
-        self.forward_vel = 1.5*self.ff
-        self.turn_scale = 1.5*self.ff #1 for imit_40_gaus_cnn_net_13_linear_50_work
+        self.ff = 1  # =1 for training => fast-forward rate
+        self.forward_vel = 1*self.ff
+        self.turn_scale = 1*self.ff #1 for imit_40_gaus_cnn_net_13_linear_50_work
         self.prev_xy_key = 9
         self.prev_th_key = 9
 
@@ -1291,8 +1291,8 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         self.tsh_val = 252  # img vals < 100 ~ 20+m, 249 for _bank
         self.crop_depth_h_frac = 0.25
-        self.crop_depth_w_frac = 0.25  #0.25 for imit_40_gaus_cnn_net_13_linear_50_work
-        self.gaus_sig = 6  #6 for imit_40_gaus_cnn_net_13_linear_50_work
+        self.crop_depth_w_frac = 0.0  #0.25 for imit_40_gaus_cnn_net_13_linear_50_work
+        self.gaus_sig = 10  #6 for imit_40_gaus_cnn_net_13_linear_50_work
 
         # computer vision params
         pos = self.getPosition()
@@ -1329,8 +1329,8 @@ class GroundAirSim(CustomAirSim, gym.Env):
         #         orq = self.toQuaternion(ore)
 
         # print key
-        # if abs(key) < 0.135:
-        if abs(key) < 0.023:
+        # if abs(key) < 0.1:
+        if abs(key) < 0.08:
             key = 0
             # key = np.clip(key, -1, 1)
             # print "clipped key: " + str(key)
@@ -1412,6 +1412,8 @@ class GroundAirSim(CustomAirSim, gym.Env):
         if self.ran_start:
             self.simSetPose([self.pos0[0], self.pos0[1] + 
                 3.0*float(np.random.random_sample())-1.5, self.pos0[2]], self.orq0)
+            # check specific start pos
+            # self.simSetPose([self.pos0[0], self.pos0[1] + 1.5, self.pos0[2]], self.orq0)
         elif self.cycle_start:
             self.simSetPose([self.pos0[0], self.pos0[1] + 
                 1.5*float((self.n_ep % 3) - 1), self.pos0[2]], self.orq0)
@@ -1582,16 +1584,6 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         return res
 
-    def tsh_distance(self, tsh_val, img):
-        """
-        Threshold pixel values on image. Set to zero if less than tsh_val.
-        img vals < 100 indicate 20+ meters depth 
-            (figures->validate_depth->pixel_distance)
-        """
-        low_val_idx = img < tsh_val
-        img[low_val_idx] = 0
-
-        return img
 
     @property
     def action_space(self):

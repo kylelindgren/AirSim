@@ -109,3 +109,52 @@ test network
 				self.lstm = True/False if model contains lstm modules
 	python main.py
 
+
+# ===================================================================================
+# 	ros turtlebot operation
+# ===================================================================================
+human behavior
+	config_main.ini
+		n_episodes = 10
+		run_id = meow
+		agent = human
+		ros = True
+		ground = True
+		cv_mode = True
+		exp = 0
+	.bashrc
+		export ROS_MASTER_URI=http://charlie:11311/  # charlie = 192.168.88.106
+		export ROS_IP=192.168.88.57
+	charlie
+		connect to ASUS network
+			pwd labZ2C37
+		ssh ubuntu@charlie (charlie defined as 192.168.88.106 in /etc/hosts)
+			pwd autonomous
+		.bashrc
+			export ROS_MASTER_URI=http://192.168.88.106:11311/
+			export ROS_IP=192.168.88.106
+		roslaunch turtlebot_bringup minimal.launch
+	roslaunch turtlebot_teleop keyboard_teleop_charlie.launch 
+	python main.py
+		command from keyboard_teleop_charlie.launch terminal
+		human avoids obstacles for n_episodes
+		results saved in ../data folder
+			run_id_imit_n.csv
+			run_id_avg_n.csv
+train network
+	python neural.py
+		run_id = run_id from config_main.ini
+		var_id = variation of run_id
+		n_episodes = val from config_main.ini
+		output stored in ../neural_models folder
+			neural_name provided in save_neural() inside train_model()
+test network
+	config_main.ini
+		agent = imitation
+		all other parameters same
+	learn.py
+		class ImitationAgen()
+			__init__()
+				self.model = load_neural(name='neural_name', ...)
+				self.lstm = True/False if model contains lstm modules
+	python main.py

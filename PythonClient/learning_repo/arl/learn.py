@@ -21,6 +21,9 @@ import tensorflow as tf
 import tflearn
 from sklearn.preprocessing import StandardScaler, scale
 
+import rospy
+from geometry_msgs.msg import Twist
+
 import pygame, time           # for keyboard multi-threaded inputs
 from pygame.locals import *
 
@@ -400,10 +403,10 @@ class ImitationAgent(object):
         self.n_act = 1
 
         # depth data resolution
-        # self.width = 64
+        # self.width = 64  # for widefov
         # self.height = 36
         # cropped image
-        self.width = 32
+        self.width = 64  # 32 for ..._work
         self.height = 9
 
         # load network
@@ -413,7 +416,7 @@ class ImitationAgent(object):
         # imit_30_turn_cnn_net_12463_linear_500
         # imit_30_turn_64cnn_net_13_linear_100 off 0.025752
         # imit_30_turn_128_8cnn_net_13_linear_100 off 0.0224069 passes all 3
-            # ran 30 times with random start -> 50% success rate
+            # old -- ran 30 times with random start -> 50% success rate
         # imit_30_turn_128cnn_net_13_linear_100 off 0.0171402 (cnn layer 16) passes all 3
         # imit_30_turn_128_16cnn_net_13_linear_50 off -0.019798 fails path 1
         # imit_30_turn_128_16cnn_net_13_linear_500 off -0.027919 passes all 3
@@ -423,7 +426,13 @@ class ImitationAgent(object):
         # imit_30_turn_128_128cnn_net_13_linear_100 off 0.0151486
         # imit_30_turn_256cnn_net_13_linear_100 off 0.0201453
         # imit_30_turn_512cnn_net_13_linear_100 off 0.0217767
-        self.model = load_neural(name='imit_30_turn_128_8cnn_net_13_linear_100', loss='mse', opt='adam')
+        
+        # imit_30_turn_widefov_128_16cnn_net_13_linear_widefov_100 off -0.185941
+        # imit_30_turn_widefov_128_16cnn_net_13_linear_widefov_300 off -0.0639197379351
+        #   25/30 with ran_start and key >= 0.1
+        # imit_30_turn_widefov_128_16cnn_net_13_linear_widefov_1000 loss -0.07262019068
+        #   24/30 with ran_start and key >= 0.08
+        self.model = load_neural(name='imit_30_turn_widefov_128_16cnn_net_13_linear_widefov_1000', loss='mse', opt='adam')
         self.lstm = False
         # lrate = .01
         # epochs = 300
@@ -473,6 +482,8 @@ class HumanAgent(object):
     def __init__(self, env, n_episodes):
         self.name = 'human'
         self.ground = False  # KL
+        self.ros = False
+        self.ros_act_key = 0
         # get env characteristics
         self.action_space = env.action_space
 
@@ -558,7 +569,26 @@ class HumanAgent(object):
 
     #     return act, new_act
 
+    def callback(self, data):
+        # map Twist message to key action
+        # print self.ros_act_key
+        self.ros_act_key = float(-data.angular.z)
+
+    def init_ros(self):
+        self.ros = True
+        rospy.init_node('airsim_turtlebot_teleop')
+        sub = rospy.Subscriber('/charlie/cmd_vel_mux/input/navi', Twist, self.callback)
+        print "ROS initialized"
+        # rospy.spin()
+
     def act(self, observation):
+
+        if self.ros:
+            rospy.wait_for_message('/charlie/cmd_vel_mux/input/navi', Twist)
+            self.show_score(self.ros_act_key)
+            return self.ros_act_key
+
+
         # start with past action
         act = self.last_act
 
@@ -709,8 +739,6 @@ class HumanAgentXBoxMulti(object):
         pygame.event.clear()
 
         return act
-
-
 
 # ===========================
 #   Deep-Q Networks

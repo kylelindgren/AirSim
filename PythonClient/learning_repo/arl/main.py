@@ -54,7 +54,8 @@ def main(inf_mode=False, use_gui=False):
     if select_agent == 'human':
         agent = HumanAgent(drone, n_episodes)  # changed to use kb - KL
         # agent = HumanAgentXBoxMulti(drone, n_episodes)
-        drone.cycle_start = True
+        # drone.cycle_start = True
+        drone.ran_start = True
     elif select_agent == 'imitation':
         # drone.cycle_start = True  # cycle through 3 start locations
         drone.ran_start = True  # random start
@@ -94,6 +95,9 @@ def main(inf_mode=False, use_gui=False):
     # turtle! - KL
     if main_setup['ground']:
         agent.ground = True
+
+    if main_setup['ros']:
+        agent.init_ros()
 
     # test a few iterations
     run_id = main_setup['run_id']

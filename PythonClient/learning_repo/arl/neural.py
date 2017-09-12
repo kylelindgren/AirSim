@@ -27,6 +27,7 @@ from keras.utils import plot_model
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.contrib.keras.python.keras import backend as K
 from keras.utils.generic_utils import get_custom_objects
+from keras.engine.topology import Layer
 
 import tensorflow as tf
 
@@ -75,6 +76,32 @@ def save_neural(model, name):
 
 def ThresholdedLinear(inputs, theta=0.1):
     return inputs * K.cast(abs(inputs) > theta, K.floatx())   
+
+class ThresholdedLinear(Layer):
+    def __init__(self, theta=1.0, **kwargs):
+        # self.output_dim = output_dim
+        super(ThresholdedLinear, self).__init__(**kwargs)
+        self.supports_masking = True
+        self.theta = K.cast_to_floatx(theta)
+
+    def build(self, input_shape):
+        # Create a trainable weight variable for this layer.
+        # self.kernel = self.add_weight(name='kernel', 
+        #                               shape=(input_shape[1], self.output_dim),
+        #                               initializer='uniform',
+        #                               trainable=True)
+        super(ThresholdedLinear, self).build(input_shape)  # Be sure to call this somewhere!
+
+    def call(self, inputs, mask=None):
+        return inputs * K.cast(abs(inputs) > self.theta, K.floatx())
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], input_shape[1])
+
+    def get_config(self):
+        config = {'theta': float(self.theta)}
+        base_config = super(ThresholdedLinear, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
 
 
 class DeepNeuralNet(object):
@@ -137,9 +164,9 @@ class ImitationNetwork(object):
     """
     def __init__(self, n_act=1, dqn=False):
         # depth data resolution
-        # self.width = 64
+        # self.width = 64  # for widefov
         # self.height = 36
-        self.width = 32
+        self.width = 64
         self.height = 9
 
         # for lstm only
@@ -244,9 +271,10 @@ class ImitationNetwork(object):
         # model.add(Dropout(0.25))
         model.add(Dense(self.n_act))
         # model.add(BatchNormalization())
-        # model.add(Activation('linear'))
+        model.add(Activation('linear'))
+        # model.add(ThresholdedLinear(theta=0.3))
         # model.add(Activation(advanced_activations.ThresholdedLinear(theta=0.1)))
-        model.add(Activation('ThresholdedLinear'))
+        # model.add(Activation('ThresholdedLinear'))
         # model.add(Activation(advanced_activations.ThresholdedReLU(theta=0.1)))
 
         model.compile(loss='mse',
@@ -657,9 +685,9 @@ if __name__ == '__main__':
     # test training
     n_act = 1
     n_episodes = 30
-    n_epochs = 50
-    run_id = 'imit_30_turn'
-    var_id = '_128_16cnn_net_13_linear_th_' + str(n_epochs)
+    n_epochs = 100
+    run_id = 'imit_30_turn_widefov'
+    var_id = '_128_16cnn_net_13_linear_widefov_' + str(n_epochs)
 
     net = ImitationNetwork(n_act=n_act)
     net.train_model(run_id, n_episodes, n_act)
