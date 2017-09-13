@@ -125,16 +125,29 @@ human behavior
 	.bashrc
 		export ROS_MASTER_URI=http://charlie:11311/  # charlie = 192.168.88.106
 		export ROS_IP=192.168.88.57
+	roslaunch turtlebot_teleop keyboard_teleop_charlie.launch 
 	charlie
 		connect to ASUS network
 			pwd labZ2C37
 		ssh ubuntu@charlie (charlie defined as 192.168.88.106 in /etc/hosts)
 			pwd autonomous
 		.bashrc
-			export ROS_MASTER_URI=http://192.168.88.106:11311/
+			export ROS_MASTER_URI=http://kyle-vaio:11311/  # kyle-vaio = 192.168.88.57
 			export ROS_IP=192.168.88.106
-		roslaunch turtlebot_bringup minimal.launch
-	roslaunch turtlebot_teleop keyboard_teleop_charlie.launch 
+		~/catkin_ws/src/zed-ros-wrapper/src/zed_wrapper_nodelet.cpp
+			line ~247 defines openni_depth_mode values 2
+		~/catkin_ws/src/zed-ros-wrapper/launch/zed_camera.launch
+			...
+			<param name="resolution"            value="3" />
+		    <param name="quality"               value="1" />
+		    <param name="sensing_mode"          value="0" />
+		    <param name="frame_rate"            value="30" />
+		    <param name="odometry_db"           value="" />
+		    <param name="openni_depth_mode"     value="2" />
+		    <param name="gpu_id"                value="-1" />
+			...
+		source ~/catkin_ws/devel/setup.bash
+		roslaunch turtlebot_bringup cam_minimal.launch
 	python main.py
 		command from keyboard_teleop_charlie.launch terminal
 		human avoids obstacles for n_episodes

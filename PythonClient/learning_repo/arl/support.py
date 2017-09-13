@@ -940,7 +940,7 @@ class CustomAirSim(AirSimClient, gym.Env):
                 # airsim update changes depth image output - KL
                 return png[:, :, 2]
             else:
-                print('Couldnt take one depth pic.')
+                print('Could not take a depth pic.')
                 return np.zeros((144,256)) # empty picture
 
     def take_depth_pic(self):
