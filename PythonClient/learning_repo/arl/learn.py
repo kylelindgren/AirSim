@@ -578,7 +578,7 @@ class HumanAgent(object):
         self.ros = True
         rospy.init_node('airsim_turtlebot_teleop')
         sub = rospy.Subscriber('/charlie/cmd_vel_mux/input/navi', Twist, self.callback)
-        print "ROS initialized"
+        print "ROS navi connection established"
         # rospy.spin()
 
     def act(self, observation):

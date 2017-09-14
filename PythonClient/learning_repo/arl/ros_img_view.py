@@ -16,7 +16,8 @@ def callback(img):
     # print np.float(img.data)
     # print img.encoding
     img_cv = bridge.imgmsg_to_cv2(img)
-    img_cv_cvt = np.uint8(img_cv)
+    # img_cv_cvt = np.uint8(img_cv)
+    # img_cv_cvt = cv2.resize(img_cv_cvt, (256, 144), interpolation=cv2.INTER_AREA)
     # print img_cv_cvt
 
     # img_cv = bridge.imgmsg_to_cv2(img, "passthrough")
@@ -25,7 +26,7 @@ def callback(img):
     # img_cv_cvt = cv2.cvtColor(img_cv, cv2.COLOR_GRAY2BGR)
     # img_cv_cvt = np.uint16(img_cv)
     # print img_cv_cvt
-    cv2.imshow('depth', img_cv_cvt)
+    cv2.imshow('depth', img_cv)
     cv2.waitKey(1)
 
 def listener():

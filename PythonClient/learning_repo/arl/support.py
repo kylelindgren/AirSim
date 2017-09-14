@@ -18,6 +18,9 @@ import resource
 import gym
 from gym import spaces
 import pygame
+import rospy
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 
 import matplotlib.pyplot as plt
 from scipy.ndimage.filters import gaussian_filter
@@ -30,6 +33,7 @@ from gui import MachineGUI
 from learn import ReplayBuffer
 from neural import save_neural
 
+bridge = CvBridge()
 
 def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
     """
@@ -53,6 +57,10 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
     data_folder = '../data/'
     best_reward = -1e6
     total_done = 0.0
+
+    # ros waterfall
+    if agent.ros:
+        env.init_ros()
 
     # run for a given number of episodes
     for i_episode in range(n_episodes):
@@ -664,11 +672,11 @@ class CustomAirSim(AirSimClient, gym.Env):
         # depth parameters and compression factors
         # depth 1/4: 36 x 64 pics
         # depth 1/8: 18 x 32 pics
-        depth_width = 256
-        depth_height = 144
+        self.depth_width = 256
+        self.depth_height = 144
         self.reduc_factor = 0.25  # 1/4 KL # multiply original size by this factor
-        self.depth_w = int(depth_width*self.reduc_factor)
-        self.depth_h = int(depth_height*self.reduc_factor)
+        self.depth_w = int(self.depth_width*self.reduc_factor)
+        self.depth_h = int(self.depth_height*self.reduc_factor)
 
         # gui parameters
         self.use_gui = use_gui
@@ -1277,13 +1285,16 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         self.ff = 1  # =1 for training => fast-forward rate
         self.forward_vel = 1*self.ff
-        self.turn_scale = 1*self.ff #1 for imit_40_gaus_cnn_net_13_linear_50_work
+        self.turn_scale = 2.7*self.ff #1 for imit_40_gaus_cnn_net_13_linear_50_work
         self.prev_xy_key = 9
         self.prev_th_key = 9
 
         self.ran_start = False
         self.cycle_start = False
         self.n_ep = 0
+
+        self.ros = False
+        self.ros_depth = None
 
         # parameters for turn maneuver
         # 1.19 = collision, 1.18 no collision
@@ -1313,6 +1324,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         Sets position and orientation for cv mode ground vehicle.
         """
         duration = self.dt
+        forward_throttle = 0.3  # turtlebot greatly decreases forward vel when turning
 
         pos = self.getPosition()
         orq = self.getOrientation()
@@ -1330,16 +1342,18 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         # print key
         # if abs(key) < 0.1:
+        key = key*self.turn_scale
         if abs(key) < 0.08:
             key = 0
+            forward_throttle = 1
             # key = np.clip(key, -1, 1)
             # print "clipped key: " + str(key)
-        ore = [ore[0], ore[1], ore[2] + key*self.turn_scale*duration]
+        ore = [ore[0], ore[1], ore[2] + key*duration]
         orq = self.toQuaternion(ore)
 
         # constant velocity forward
-        pos[0] = pos[0] + math.cos(ore[2])*self.forward_vel*duration
-        pos[1] = pos[1] + math.sin(ore[2])*self.forward_vel*duration
+        pos[0] = pos[0] + math.cos(ore[2])*self.forward_vel*duration*forward_throttle
+        pos[1] = pos[1] + math.sin(ore[2])*self.forward_vel*duration*forward_throttle
 
         self.simSetPose(pos, orq)
 
@@ -1454,6 +1468,29 @@ class GroundAirSim(CustomAirSim, gym.Env):
     #     # self.moveToZ(z, 10, max_wait_seconds, yaw_mode, 1, 1)
     #     time.sleep(max_wait_seconds)
 
+    def grab_depth(self):
+        """
+        Get camera depth image and return array of pixel values.
+        Returns numpy ndarray.
+        """
+        # get depth image
+        if self.ros:
+            rospy.wait_for_message('/zed/depth/depth_registered', Image)
+            result = cv2.resize(self.ros_depth, (self.depth_width, self.depth_height), interpolation=cv2.INTER_AREA)
+            # cv2.imshow("zed depth image", result)
+            # cv2.waitKey(1)
+            return result
+        else:
+            result = self.simGetImage(0, AirSimImageType.Depth)
+            if (result is not None):
+                # depth
+                rawImage = np.fromstring(result, np.int8)
+                png = cv2.imdecode(rawImage, cv2.IMREAD_UNCHANGED)
+                if png is not None:
+                    return png[:, :, 2]
+                else:
+                    print('Could not take a depth pic.')
+                    return np.zeros((self.depth_height, self.depth_width)) # empty picture
 
     def step(self, action):
         """
@@ -1584,6 +1621,14 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         return res
 
+    def callback(self, img):
+        img_cv = bridge.imgmsg_to_cv2(img)
+        self.ros_depth = img_cv
+
+    def init_ros(self):
+        self.ros = True
+        sub = rospy.Subscriber('/zed/depth/depth_registered', Image, self.callback)
+        print "ROS camera connection established"
 
     @property
     def action_space(self):

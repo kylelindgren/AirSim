@@ -123,12 +123,12 @@ human behavior
 		cv_mode = True
 		exp = 0
 	.bashrc
-		export ROS_MASTER_URI=http://charlie:11311/  # charlie = 192.168.88.106
+		export ROS_MASTER_URI=http://192.168.88.57:11311/
 		export ROS_IP=192.168.88.57
+	connect to ASUS network
+		pwd labZ2C37
 	roslaunch turtlebot_teleop keyboard_teleop_charlie.launch 
 	charlie
-		connect to ASUS network
-			pwd labZ2C37
 		ssh ubuntu@charlie (charlie defined as 192.168.88.106 in /etc/hosts)
 			pwd autonomous
 		.bashrc
