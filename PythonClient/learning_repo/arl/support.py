@@ -1485,7 +1485,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         Returns numpy ndarray.
         """
         # get depth image
-        if get network connection self.ros:
+        if self.ros:
             rospy.wait_for_message('/zed/depth/depth_registered', Image)
             result = cv2.resize(self.ros_depth, (self.depth_width, self.depth_height), interpolation=cv2.INTER_AREA)
             # cv2.imshow("zed depth image", self.ros_depth)
