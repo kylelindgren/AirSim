@@ -58,7 +58,9 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
     best_reward = -1e6
     total_done = 0.0
 
-    # ros waterfall
+    # ros waterfall, human agent always uses airsim
+    if not agent.ros or agent.name == 'human':
+        env.init_airsim()
     if agent.ros:
         env.init_ros()
 
@@ -109,42 +111,6 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
             # save past observation and action taken
             state_act[t,:] = np.hstack((past_observation.flatten(),action))
 
-            # # check if human is intervening
-            # if agent.name == 'interv':
-            #     if agent.interv:
-            #
-            #         # update agent network
-            #         x = state_act[t:t+1,:-1]
-            #         y = state_act[t:t+1,-1]
-            #         agent.update_net(x, y)
-
-            # # check if human is intervening
-            # if agent.name == 'interv':
-            #     if agent.interv:
-            #         if not recording_already:
-            #             print('** START recording ...')
-            #             start_interv = t
-            #             recording_already = True
-            #
-            #     elif agent.interv == False:
-            #         if recording_already:
-            #             print('** END recording ...')
-            #             recording_already = False
-            #
-            #     # update net when have a given number of samples
-            #     if recording_already:
-            #         batch_count = t - start_interv
-            #         # print("Batch count = ", batch_count)
-            #         if (batch_count) >= 31:
-            #
-            #             # update agent network
-            #             x = state_act[start_interv:t+1,:-1]
-            #             y = state_act[start_interv:t+1,-1]
-            #             agent.update_net(x, y)
-            #
-            #             # reset times
-            #             start_interv = t
-
             # execute selected action, get new observation and reward
             observation, reward, done, collision = env.step(action)
             total_reward += reward
@@ -163,7 +129,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
                 break
 
             # check if goal or if reached any other simulation limit
-            if t == 399 or done:  # done every episode fixed # steps - KL
+            if t == (n_steps - 1) or done:  # done every episode fixed # steps - KL
                 total_done = total_done + 1.0
                 print("Episode finished after {} steps.".format(t + 1))
                 break
@@ -204,8 +170,9 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
     process_avg(run_id, n_episodes)
 
     # go home
-    print 'Going HOME...' 
-    env.drone_gohome()
+    if not self.ros:
+        print 'Going HOME...' 
+        env.drone_gohome()
     print 'DONE! Thank you! :)'
 
 def train_model_multi(run_id, env, agent, n_episodes=1, n_steps=50):
@@ -646,7 +613,7 @@ class CustomAirSim(AirSimClient, gym.Env):
     Custom class for handling AirSim commands like connect, takeoff, land, etc.
     """
     def __init__(self,n_steps, inf_mode=False, use_gui=False):
-        AirSimClient.__init__(self, "127.0.0.1") # connect to ip
+        # AirSimClient.__init__(self, "127.0.0.1") # connect to ip
         self.max_timeout = 20 # seconds
         # self.connect_AirSim()  # moved to reset() - KL
         self.inf_mode = inf_mode
@@ -1256,6 +1223,9 @@ class CustomAirSim(AirSimClient, gym.Env):
 
         return res
 
+    def init_airsim(self):
+        AirSimClient.__init__(self, "127.0.0.1") # connect to ip
+
     @property
     def action_space(self):
         """
@@ -1285,7 +1255,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         self.ff = 1  # =1 for training => fast-forward rate
         self.forward_vel = 1*self.ff
-        self.turn_scale = 2.7*self.ff #1 for imit_40_gaus_cnn_net_13_linear_50_work
+        self.turn_scale = 2.5*self.ff #1 for imit_40_gaus_cnn_net_13_linear_50_work
         self.prev_xy_key = 9
         self.prev_th_key = 9
 
@@ -1306,11 +1276,11 @@ class GroundAirSim(CustomAirSim, gym.Env):
         self.gaus_sig = 10  #6 for imit_40_gaus_cnn_net_13_linear_50_work
 
         # computer vision params
-        pos = self.getPosition()
-        orq = self.getOrientation()
+        self.pos = None
+        self.orq = None
         # self.pos0, self.orq0 = (pos, orq)
         self.pos0, self.orq0 = ([0.0, 0.0, self.set_z], [1.0, 0.0, 0.0, 0.0])
-        self.pos_new, self.orq_new = (pos, orq)
+        self.pos_new, self.orq_new = (None, None)
 
         # action limits
         self.map_length = 40
@@ -1321,7 +1291,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
     def drone_turn(self, key):
         """
-        Sets position and orientation for cv mode ground vehicle.
+        Sets position and orientation for airsim cv mode ground vehicle.
         """
         duration = self.dt
         forward_throttle = 0.3  # turtlebot greatly decreases forward vel when turning
@@ -1342,12 +1312,13 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         # print key
         # if abs(key) < 0.1:
-        key = key*self.turn_scale
-        if abs(key) < 0.08:
+        if abs(key) < 0.05:
             key = 0
             forward_throttle = 1
             # key = np.clip(key, -1, 1)
             # print "clipped key: " + str(key)
+        key = key*self.turn_scale
+        # print "airsim key:  " + str(key)
         ore = [ore[0], ore[1], ore[2] + key*duration]
         orq = self.toQuaternion(ore)
 
@@ -1437,68 +1408,16 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         time.sleep(1)
 
-    # def gohome_turtle(self):
-    #     """
-    #     Climb high, go home, and land.
-    #     """
-    #     # make sure offboard mode is on
-    #     self.setOffboardModeTrue()
-
-    #     # move home
-    #     print('Moving to turtle HOME position...')
-
-    #     # compute distance from home
-    #     dist = self.dist_home()
-
-    #     while dist > 1:
-    #         self.goHome()
-    #         time.sleep(5)
-
-    #         # compute distance from home
-    #         dist = self.dist_home()
-
-    #     print('Close enough.')
-    #     z = self.set_z
-    #     max_wait_seconds = 30
-    #     drivetrain = DrivetrainType.MaxDegreeOfFreedom
-    #     yaw_mode = YawMode(False, 0)
-
-    #     print('Descending to %i meters...' %(z*(-1)))
-    #     self.moveToZ(z, 10, max_wait_seconds, yaw_mode, 0, 1)
-    #     # self.moveToZ(z, 10, max_wait_seconds, yaw_mode, 1, 1)
-    #     time.sleep(max_wait_seconds)
-
-    def grab_depth(self):
-        """
-        Get camera depth image and return array of pixel values.
-        Returns numpy ndarray.
-        """
-        # get depth image
-        if self.ros:
-            rospy.wait_for_message('/zed/depth/depth_registered', Image)
-            result = cv2.resize(self.ros_depth, (self.depth_width, self.depth_height), interpolation=cv2.INTER_AREA)
-            # cv2.imshow("zed depth image", result)
-            # cv2.waitKey(1)
-            return result
-        else:
-            result = self.simGetImage(0, AirSimImageType.Depth)
-            if (result is not None):
-                # depth
-                rawImage = np.fromstring(result, np.int8)
-                png = cv2.imdecode(rawImage, cv2.IMREAD_UNCHANGED)
-                if png is not None:
-                    return png[:, :, 2]
-                else:
-                    print('Could not take a depth pic.')
-                    return np.zeros((self.depth_height, self.depth_width)) # empty picture
-
     def step(self, action):
         """
         Step ground agent in cv mode based on computed action.
         Return reward and if check if episode is done.
         """
         # take action
-        wait_time = self.drone_turn(float(action))
+        if not self.ros:
+            wait_time = self.drone_turn(float(action))
+        else:  
+            wait_time = self.dt  # same time returned here, just no airsim update
         # wait_time = self.drone_bank(float(action))
         # wait_time = self.drone_side_step(float(action))
         time.sleep(wait_time)
@@ -1560,6 +1479,61 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         return res, reward, done, {}
 
+    def grab_depth(self):
+        """
+        Get camera depth image and return array of pixel values.
+        Returns numpy ndarray.
+        """
+        # get depth image
+        if get network connection self.ros:
+            rospy.wait_for_message('/zed/depth/depth_registered', Image)
+            result = cv2.resize(self.ros_depth, (self.depth_width, self.depth_height), interpolation=cv2.INTER_AREA)
+            # cv2.imshow("zed depth image", self.ros_depth)
+            # cv2.waitKey(1)
+            return result
+        else:
+            result = self.simGetImage(0, AirSimImageType.Depth)
+            if (result is not None):
+                # depth
+                rawImage = np.fromstring(result, np.int8)
+                png = cv2.imdecode(rawImage, cv2.IMREAD_UNCHANGED)
+                if png is not None:
+                    return png[:, :, 2]
+                else:
+                    print('Could not take a depth pic.')
+                    return np.zeros((self.depth_height, self.depth_width)) # empty picture
+
+    def preprocess(self, img):
+        """
+        Resize image. Converts and down-samples the input image.
+        """
+        # resize img
+        res = cv2.resize(img, None, fx=self.reduc_factor, fy=self.reduc_factor, interpolation=cv2.INTER_AREA)
+        # cv2.imshow('processed', res)
+        # cv2.waitKey(1)
+        # normalize image
+
+
+        res = self.tsh_distance(self.tsh_val, res)
+        # if self.ros:  # gaussian blur
+
+        # obstacles = 255
+        # cv2.imshow("zed depth image", res)
+        # cv2.waitKey(1)    
+        
+        height = res.shape[0]
+        width = res.shape[1]
+        res = res[int(self.crop_depth_h_frac*height):int(height - 2*self.crop_depth_h_frac*height), 
+        int(self.crop_depth_w_frac*width):int(width - self.crop_depth_w_frac*width)] / 255.0
+        # :] / 255.0
+        # int(self.crop_depth_frac*width):int(width - self.crop_depth_frac*width)] / 255.0  # change 255 -> 255.0 for float calc - KL (Py2.7)
+
+        res1 = gaussian_filter(res, sigma=7)
+
+        # print "res shape: " + str(res.shape)  # (9, 32)
+
+        return res1
+
     def compute_reward(self, img):
         """
         Compute reward based on image received.
@@ -1588,36 +1562,11 @@ class GroundAirSim(CustomAirSim, gym.Env):
         """
         Ground vehicle does not takeoff or need home set (cv mode) like 
         flying drones. Returns observation.
-        """
-        # get next state
-        self.drone_gohome()  # send back to starting position
+        """ 
+        if not self.ros:
+            self.drone_gohome()  # send back to starting position
         img = self.grab_depth()
         res = self.preprocess(img)
-
-        return res
-
-    def preprocess(self, img):
-        """
-        Resize image. Converts and down-samples the input image.
-        """
-        # resize img
-        res = cv2.resize(img, None, fx=self.reduc_factor, fy=self.reduc_factor, interpolation=cv2.INTER_AREA)
-        # cv2.imshow('processed', res)
-        # cv2.waitKey(1)
-        # normalize image
-
-        res = self.tsh_distance(self.tsh_val, res)
-        
-        height = res.shape[0]
-        width = res.shape[1]
-        res = res[int(self.crop_depth_h_frac*height):int(height - 2*self.crop_depth_h_frac*height), 
-        int(self.crop_depth_w_frac*width):int(width - self.crop_depth_w_frac*width)] / 255.0
-        # :] / 255.0
-        # int(self.crop_depth_frac*width):int(width - self.crop_depth_frac*width)] / 255.0  # change 255 -> 255.0 for float calc - KL (Py2.7)
-        
-        # cv2.imshow('processed, normalized', res)
-        # cv2.waitKey(1)
-        # print "res shape: " + str(res.shape)  # (9, 32)
 
         return res
 
@@ -1629,6 +1578,12 @@ class GroundAirSim(CustomAirSim, gym.Env):
         self.ros = True
         sub = rospy.Subscriber('/zed/depth/depth_registered', Image, self.callback)
         print "ROS camera connection established"
+
+    def init_airsim(self):
+        AirSimClient.__init__(self, "127.0.0.1")
+        self.pos = self.getPosition()
+        self.orq = self.getOrientation()
+        self.pos_new, self.orq_new = (self.pos, self.orq)
 
     @property
     def action_space(self):

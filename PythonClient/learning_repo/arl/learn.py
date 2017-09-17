@@ -394,6 +394,12 @@ class ImitationAgent(object):
     def __init__(self, env, n_episodes):
         self.name = 'imitation'
         self.ground = False  # KL
+        self.ros = False
+        self.pub = None
+        self.target_speed = 0
+        self.target_turn = 0
+        self.control_speed = 0
+        self.control_turn = 0
         # get env characteristics
         self.action_space = env.action_space
 
@@ -432,7 +438,10 @@ class ImitationAgent(object):
         #   25/30 with ran_start and key >= 0.1
         # imit_30_turn_widefov_128_16cnn_net_13_linear_widefov_1000 loss -0.07262019068
         #   24/30 with ran_start and key >= 0.08
-        self.model = load_neural(name='imit_30_turn_widefov_128_16cnn_net_13_linear_widefov_1000', loss='mse', opt='adam')
+        # imit_20_ros_128_16cnn_net_13_linear_widefov_500 off 0.0308185
+        #   18/20 with ran_start and key >= 0.031
+        #   19/20 with ran_start and key >= 0.05
+        self.model = load_neural(name='imit_20_ros_128_16cnn_net_13_linear_widefov_500', loss='mse', opt='adam')
         self.lstm = False
         # lrate = .01
         # epochs = 300
@@ -440,6 +449,7 @@ class ImitationAgent(object):
         # momentum = .9
         # sgd = SGD(lr=lrate, momentum=momentum, decay=decay, nesterov = False)
         # self.model = load_neural(name='model', loss='mse', opt=sgd)
+
 
     def act(self, img_input):
         """
@@ -463,11 +473,66 @@ class ImitationAgent(object):
                 img_input = 255*img_input.reshape((samples, self.height, self.width, 1))
             act = self.model.predict(img_input, batch_size=1, verbose=2)
             
+        if self.ros:
+            # self.pub_navi(act[0])
+            # return -act[0]
+            return self.pub_navi(-act[0])
+        else:
+            return act[0]
+
         # print act
         # # random action
         # act = [np.random.randint(-1, 1, 1)]
 
-        return act[0]
+    def pub_navi(self, action):
+        """
+        Function to mimic turtlebot_teleop_key_charlie
+        Publishes agent generated commands to navi topic, subscribed to by the 
+        airsim and turtlebot vehicles.
+        """
+
+        speed = .1
+        turn = 0.5
+
+        x = 1  # always moving forward
+
+        th = action 
+
+        self.target_speed = speed * x
+        self.target_turn = turn * th
+
+        if self.target_speed > self.control_speed:
+            self.control_speed = min( self.target_speed, self.control_speed + 0.02 )
+        elif self.target_speed < self.control_speed:
+            self.control_speed = max( self.target_speed, self.control_speed - 0.02 )
+        else:
+            self.control_speed = self.target_speed
+
+        if self.target_turn > self.control_turn:
+            self.control_turn = min( self.target_turn, self.control_turn + 0.1 )
+        elif self.target_turn < self.control_turn:
+            self.control_turn = max( self.target_turn, self.control_turn - 0.1 )
+        else:
+            self.control_turn = self.target_turn
+
+        twist = Twist()
+        twist.linear.x = self.control_speed; twist.linear.y = 0; twist.linear.z = 0
+        twist.angular.x = 0; twist.angular.y = 0; 
+        if abs(self.control_turn) < 0.1:
+            twist.angular.z = 0
+        else:
+            twist.angular.z = self.control_turn
+
+        print "turn command:" + str(twist.angular.z)
+        self.pub.publish(twist)
+
+        return -twist.angular.z
+
+    def init_ros(self):
+        self.ros = True
+        rospy.init_node('airsim_turtlebot_teleop')
+        self.pub = rospy.Publisher('/charlie/cmd_vel_mux/input/navi', Twist, queue_size=5)
+        print "ROS navi connection established"
 
 
 # ===========================
@@ -575,7 +640,9 @@ class HumanAgent(object):
         self.ros_act_key = float(-data.angular.z)
 
     def init_ros(self):
+        # add command to kill pygame window
         self.ros = True
+        pygame.quit()  # controls take over ros via keyboard_teleop_charlie.launch 
         rospy.init_node('airsim_turtlebot_teleop')
         sub = rospy.Subscriber('/charlie/cmd_vel_mux/input/navi', Twist, self.callback)
         print "ROS navi connection established"
@@ -584,8 +651,9 @@ class HumanAgent(object):
     def act(self, observation):
 
         if self.ros:
+            # print self.ros_act_key
             rospy.wait_for_message('/charlie/cmd_vel_mux/input/navi', Twist)
-            self.show_score(self.ros_act_key)
+            # self.show_score(self.ros_act_key)
             return self.ros_act_key
 
 

@@ -684,9 +684,9 @@ class ImitationNetwork(object):
 if __name__ == '__main__':
     # test training
     n_act = 1
-    n_episodes = 30
-    n_epochs = 100
-    run_id = 'imit_30_turn_widefov'
+    n_episodes = 20
+    n_epochs = 500
+    run_id = 'imit_20_ros'
     var_id = '_128_16cnn_net_13_linear_widefov_' + str(n_epochs)
 
     net = ImitationNetwork(n_act=n_act)

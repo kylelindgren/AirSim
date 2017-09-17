@@ -15,10 +15,10 @@ def callback(img):
     # img_data = np.uint8(img.data)
     # print np.float(img.data)
     # print img.encoding
-    img_cv = bridge.imgmsg_to_cv2(img)
+    img_cv = bridge.imgmsg_to_cv2(img, "8UC1")
     # img_cv_cvt = np.uint8(img_cv)
     # img_cv_cvt = cv2.resize(img_cv_cvt, (256, 144), interpolation=cv2.INTER_AREA)
-    # print img_cv_cvt
+    # print img_cv
 
     # img_cv = bridge.imgmsg_to_cv2(img, "passthrough")
     # img_cv_cvt = np.uint8(img_cv)

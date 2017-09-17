@@ -128,6 +128,8 @@ human behavior
 	connect to ASUS network
 		pwd labZ2C37
 	roslaunch turtlebot_teleop keyboard_teleop_charlie.launch 
+		same as keyboard_teleop.launch but launches turtlebot_teleop_key_charlie which publishes to /charlie/cmd_vel_mux/input/navi
+			turtlebot_teleop_key_charlie located in /opt/ros/kinetic/lib/turtlebot_teleop
 	charlie
 		ssh ubuntu@charlie (charlie defined as 192.168.88.106 in /etc/hosts)
 			pwd autonomous
@@ -135,7 +137,18 @@ human behavior
 			export ROS_MASTER_URI=http://kyle-vaio:11311/  # kyle-vaio = 192.168.88.57
 			export ROS_IP=192.168.88.106
 		~/catkin_ws/src/zed-ros-wrapper/src/zed_wrapper_nodelet.cpp
-			line ~247 defines openni_depth_mode values 2
+			line ~250 defines openni_depth_mode values 2
+			...
+            } else if (openniDepthMode == 2) {
+                // depth = depth*255.0f/5.0f;  // max 255 for max depth 20 meters
+
+                depth_temp = depth*100.0;  // depth in cm
+                cv::threshold(depth_temp, depth, 255.0, 255.0, CV_THRESH_TRUNC);
+                depth.convertTo(depth, CV_8UC1);
+                depth = 255 - depth;  // invert image
+                encoding = sensor_msgs::image_encodings::TYPE_8UC1;
+            } else {
+			...
 		~/catkin_ws/src/zed-ros-wrapper/launch/zed_camera.launch
 			...
 			<param name="resolution"            value="3" />
@@ -148,6 +161,7 @@ human behavior
 			...
 		source ~/catkin_ws/devel/setup.bash
 		roslaunch turtlebot_bringup cam_minimal.launch
+	start airsim
 	python main.py
 		command from keyboard_teleop_charlie.launch terminal
 		human avoids obstacles for n_episodes

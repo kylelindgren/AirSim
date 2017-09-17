@@ -93,10 +93,11 @@ def main(inf_mode=False, use_gui=False):
         sys.exit(1)
 
     # turtle! - KL
-    if main_setup['ground']:
+    if main_setup['ground'] == 'True':
         agent.ground = True
 
-    if main_setup['ros']:
+    # ros = main_setup['ros']
+    if main_setup['ros'] == 'True':
         agent.init_ros()
 
     # test a few iterations
