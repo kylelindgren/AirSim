@@ -412,7 +412,7 @@ class ImitationAgent(object):
         # self.width = 64  # for widefov
         # self.height = 36
         # cropped image
-        self.width = 64  # 32 for ..._work
+        self.width = 64
         self.height = 9
 
         # load network
@@ -437,11 +437,15 @@ class ImitationAgent(object):
         # imit_30_turn_widefov_128_16cnn_net_13_linear_widefov_300 off -0.0639197379351
         #   25/30 with ran_start and key >= 0.1
         # imit_30_turn_widefov_128_16cnn_net_13_linear_widefov_1000 loss -0.07262019068
-        #   24/30 with ran_start and key >= 0.08
+        #   24/30 with ran_start and key >= 0.08        
         # imit_20_ros_128_16cnn_net_13_linear_widefov_500 off 0.0308185
         #   18/20 with ran_start and key >= 0.031
         #   19/20 with ran_start and key >= 0.05
-        self.model = load_neural(name='imit_20_ros_128_16cnn_net_13_linear_widefov_500', loss='mse', opt='adam')
+        # imit_20_ros_64_16cnn_net_13_linear_widefov_100 off 0.0171157
+        # imit_30_600_charlie_64_16cnn_net_13_linear_100 off 0.00931962
+        #   need to test
+        # imit_30_600_charlie_128_16cnn_net_13_linear_500 off 0.0242977
+        self.model = load_neural(name='imit_20_ros_64_16cnn_net_13_linear_widefov_100', loss='mse', opt='adam')
         self.lstm = False
         # lrate = .01
         # epochs = 300
@@ -474,8 +478,6 @@ class ImitationAgent(object):
             act = self.model.predict(img_input, batch_size=1, verbose=2)
             
         if self.ros:
-            # self.pub_navi(act[0])
-            # return -act[0]
             return self.pub_navi(-act[0])
         else:
             return act[0]

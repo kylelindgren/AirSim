@@ -42,6 +42,23 @@ test_20_net_1243
 			loss: 0.0706 - acc: 0.9170 - val_loss: 0.2042 - val_acc: 0.7723
 		hits pillar 1 when y-1.5 start, other start locs takes right path
 
+proven on charlie
+imit_20_ros_128_16cnn_net_13_linear_widefov_500  off 0.0308185
+	18/20 with ran_start and key >= 0.031
+	19/20 with ran_start and key >= 0.05
+	notable params:
+    	self.forward_vel = 1*self.ff
+        self.turn_scale = 2.5*self.ff
+        self.tsh_val = 252  # img vals < 100 ~ 20+m, 249 for _bank
+        self.crop_depth_h_frac = 0.25
+        self.crop_depth_w_frac = 0.0
+        self.gaus_sig_rew = 10
+        self.gaus_sig_pre = 7
+        in drone_turn() -> forward_throttle = 0.3
+
+imit_20_ros_64_16cnn_net_13_linear_widefov_100  off 0.0171157
+	20/20 with ran_start and key >= 0.018
+
 
 
 # ===================================================================================

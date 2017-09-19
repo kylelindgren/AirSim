@@ -170,7 +170,7 @@ def train_model(run_id, env, agent, n_episodes=1, n_steps=50):
     process_avg(run_id, n_episodes)
 
     # go home
-    if not self.ros:
+    if not agent.ros:
         print 'Going HOME...' 
         env.drone_gohome()
     print 'DONE! Thank you! :)'
@@ -1255,7 +1255,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         self.ff = 1  # =1 for training => fast-forward rate
         self.forward_vel = 1*self.ff
-        self.turn_scale = 2.5*self.ff #1 for imit_40_gaus_cnn_net_13_linear_50_work
+        self.turn_scale = 2.5*self.ff
         self.prev_xy_key = 9
         self.prev_th_key = 9
 
@@ -1272,8 +1272,9 @@ class GroundAirSim(CustomAirSim, gym.Env):
 
         self.tsh_val = 252  # img vals < 100 ~ 20+m, 249 for _bank
         self.crop_depth_h_frac = 0.25
-        self.crop_depth_w_frac = 0.0  #0.25 for imit_40_gaus_cnn_net_13_linear_50_work
-        self.gaus_sig = 10  #6 for imit_40_gaus_cnn_net_13_linear_50_work
+        self.crop_depth_w_frac = 0.0
+        self.gaus_sig_rew = 10
+        self.gaus_sig_pre = 7
 
         # computer vision params
         self.pos = None
@@ -1311,8 +1312,8 @@ class GroundAirSim(CustomAirSim, gym.Env):
         #         orq = self.toQuaternion(ore)
 
         # print key
-        # if abs(key) < 0.1:
-        if abs(key) < 0.05:
+        if abs(key) < 0.018:
+        # if abs(key) < 0.05:
             key = 0
             forward_throttle = 1
             # key = np.clip(key, -1, 1)
@@ -1528,7 +1529,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         # :] / 255.0
         # int(self.crop_depth_frac*width):int(width - self.crop_depth_frac*width)] / 255.0  # change 255 -> 255.0 for float calc - KL (Py2.7)
 
-        res1 = gaussian_filter(res, sigma=7)
+        res1 = gaussian_filter(res, sigma=self.gaus_sig_pre)
 
         # print "res shape: " + str(res.shape)  # (9, 32)
 
@@ -1541,7 +1542,7 @@ class GroundAirSim(CustomAirSim, gym.Env):
         # normalize pixels
         # all white = 0, all black = 1
         blurred = np.ones(img.shape) - img
-        gaus_filter = signal.gaussian(blurred.shape[1], std=self.gaus_sig)
+        gaus_filter = signal.gaussian(blurred.shape[1], std=self.gaus_sig_rew)
         # print gaus_filter
         for i in range(blurred.shape[0]):
             blurred[i, :] = 2*np.multiply(blurred[i, :], gaus_filter)
